@@ -276,6 +276,62 @@
 </style>
 </head>
 <body>
+<!-- AUTH GATE -->
+<div id="authGate" class="overlay active" style="z-index:200; background:var(--ink);">
+  <div class="modal" style="max-width:400px; margin-top:8vh;">
+    <div style="text-align:center; margin-bottom:18px;">
+      <div style="font-family:var(--display); font-weight:700; font-size:24px; color:var(--amber); letter-spacing:.04em;">SPD</div>
+      <div style="font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.08em;">Controle Financeiro — acesso protegido</div>
+    </div>
+
+    <div id="authSetupPanel" style="display:none;">
+      <h2 style="font-size:15px;">Criar senha de acesso</h2>
+      <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:14px;">
+        Primeiro acesso neste navegador. Crie uma senha para proteger os dados financeiros do grupo.
+        Ela fica só neste dispositivo — <strong>se for esquecida, não há como recuperar os dados</strong>, só zerar e recomeçar.
+        Guarde-a em local seguro.
+      </p>
+      <div class="form-grid">
+        <div class="full"><label>Senha (mín. 6 caracteres)</label><input id="authNewPass" type="password" autocomplete="new-password"></div>
+        <div class="full"><label>Confirmar senha</label><input id="authNewPass2" type="password" autocomplete="new-password"></div>
+      </div>
+      <p id="authSetupError" style="color:var(--red); font-size:12.5px; margin-top:8px; display:none;"></p>
+      <div class="modal-actions" style="justify-content:stretch;">
+        <button class="btn btn-primary" id="btnAuthSetup" style="width:100%; justify-content:center;">Criar senha e entrar</button>
+      </div>
+    </div>
+
+    <div id="authUnlockPanel" style="display:none;">
+      <h2 style="font-size:15px;">Digite a senha</h2>
+      <div class="form-grid">
+        <div class="full"><label>Senha</label><input id="authPass" type="password" autocomplete="current-password"></div>
+      </div>
+      <p id="authUnlockError" style="color:var(--red); font-size:12.5px; margin-top:8px; display:none;">Senha incorreta.</p>
+      <div class="modal-actions" style="justify-content:stretch;">
+        <button class="btn btn-primary" id="btnAuthUnlock" style="width:100%; justify-content:center;">Entrar</button>
+      </div>
+      <p style="text-align:center; margin-top:14px;">
+        <a href="#" id="linkForgotPass" style="font-size:11.5px; color:var(--text-faint);">Esqueci minha senha</a>
+      </p>
+    </div>
+
+    <div id="authForgotPanel" style="display:none;">
+      <h2 style="font-size:15px; color:var(--red);">Redefinir acesso</h2>
+      <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:14px;">
+        Sem a senha não é possível recuperar os dados salvos neste navegador — só apagar tudo e recomeçar do zero.
+        Se você tiver um backup exportado (.json) ou sincronização com o Supabase, poderá restaurar os dados depois de recriar a senha.
+      </p>
+      <div class="form-grid">
+        <div class="full"><label>Digite APAGAR para confirmar</label><input id="authForgotConfirm" placeholder="APAGAR"></div>
+      </div>
+      <div class="modal-actions" style="justify-content:stretch; gap:8px;">
+        <button class="btn" id="btnForgotCancel" style="width:100%; justify-content:center;">Cancelar</button>
+        <button class="btn btn-danger" id="btnForgotConfirm" style="width:100%; justify-content:center;">Apagar tudo e recomeçar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="app">
   <aside>
     <div class="brand">
@@ -294,6 +350,7 @@
       <label>Empresa</label>
       <select id="entityFilter"></select>
       <button class="theme-toggle" id="themeToggle">🌙 <span>Tema escuro</span></button>
+      <button class="theme-toggle" id="btnLockNow">🔒 <span>Bloquear agora</span></button>
     </div>
   </aside>
 
@@ -473,7 +530,7 @@
       <div class="dash-grid">
         <div class="panel">
           <h3>Exportar</h3>
-          <p style="color:var(--text-dim); font-size:13px; margin-bottom:14px;">Salve um arquivo .json com todas as contas e fornecedores do grupo SPD. Guarde em local seguro (Drive, iCloud, pendrive).</p>
+          <p style="color:var(--text-dim); font-size:13px; margin-bottom:14px;">Salve um arquivo .json com todas as contas e fornecedores do grupo SPD. Guarde em local seguro (Drive, iCloud, pendrive). <strong>Atenção:</strong> ao contrário dos dados salvos no navegador, esse arquivo exportado NÃO fica criptografado — qualquer pessoa que o abrir vê os dados. Trate-o como um documento financeiro confidencial.</p>
           <button class="btn btn-primary" id="btnExportJson">Exportar backup (.json)</button>
         </div>
         <div class="panel">
@@ -486,25 +543,37 @@
       </div>
 
       <div class="panel" style="margin-top:16px;">
-        <h3>Sincronização com Google Drive</h3>
+        <h3>Sincronização com Supabase</h3>
         <p style="color:var(--text-dim); font-size:13px; margin-bottom:14px;">
-          Guarda o backup automaticamente num arquivo no seu próprio Google Drive, para acessar os mesmos dados em outros aparelhos.
-          O app só enxerga o arquivo que ele mesmo cria (permissão <span class="num" style="font-size:11.5px;">drive.file</span>), nunca o resto do seu Drive.
-          Requer internet e que este app esteja hospedado num endereço http/https (não funciona abrindo o arquivo direto do computador).
+          Guarda os dados num banco de dados na nuvem, sincronizando automaticamente entre qualquer aparelho onde você entrar com a sua conta.
+          Protegido por login (e-mail/senha) e por regras de segurança no banco — só você, autenticado, acessa seus dados.
+          <strong>Atenção:</strong> diferente dos dados no navegador (que ficam criptografados localmente), o que é enviado ao Supabase fica em texto
+          normal no banco, protegido pelo login — trate as credenciais do Supabase como confidenciais.
         </p>
         <div class="form-grid" style="margin-bottom:14px;">
-          <div class="full">
-            <label>Client ID do Google (OAuth)</label>
-            <input id="gClientId" placeholder="algo como 1234567890-abcxyz.apps.googleusercontent.com">
-          </div>
+          <div><label>Project URL</label><input id="spUrl" placeholder="https://xxxxx.supabase.co"></div>
+          <div><label>Anon public key</label><input id="spKey" placeholder="cole a chave anon public aqui"></div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <button class="btn" id="btnSpSaveCreds">Salvar credenciais</button>
+        </div>
+        <div class="form-grid" style="margin-bottom:14px;" id="spAuthFields">
+          <div><label>E-mail</label><input id="spEmail" type="email" placeholder="seu@email.com"></div>
+          <div><label>Senha</label><input id="spPassword" type="password"></div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+          <button class="btn" id="btnSpSignUp">Criar conta</button>
+          <button class="btn btn-primary" id="btnSpSignIn">Entrar</button>
+          <button class="btn" id="btnSpSignOut" disabled>Sair</button>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <button class="btn" id="btnSaveClientId">Salvar Client ID</button>
-          <button class="btn btn-primary" id="btnGDriveConnect">Conectar ao Google Drive</button>
-          <button class="btn" id="btnGDriveUpload" disabled>Enviar dados para o Drive</button>
-          <button class="btn" id="btnGDriveDownload" disabled>Baixar dados do Drive</button>
+          <button class="btn" id="btnSpUpload" disabled>Enviar dados para o Supabase</button>
+          <button class="btn" id="btnSpDownload" disabled>Baixar dados do Supabase</button>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim);">
+            <input type="checkbox" id="spAutoSync" style="width:auto;"> Sincronizar automaticamente após cada alteração
+          </label>
         </div>
-        <p style="margin-top:10px; font-size:12px; color:var(--text-faint);" id="gDriveStatus">Status: não conectado.</p>
+        <p style="margin-top:10px; font-size:12px; color:var(--text-faint);" id="spStatus">Status: sem credenciais salvas.</p>
       </div>
       <div class="panel" style="margin-top:16px;">
         <h3>Importar CSV de contas</h3>
@@ -512,6 +581,22 @@
         <input type="file" id="importCsvFile" accept=".csv">
         <button class="btn" id="btnImportCsv" style="margin-left:8px;">Importar CSV</button>
       </div>
+      <div class="panel" style="margin-top:16px;">
+        <h3>Senha de acesso</h3>
+        <p style="color:var(--text-dim); font-size:13px; margin-bottom:14px;">
+          O app fica protegido por senha neste navegador. Os dados são gravados de forma cifrada (criptografados) usando essa senha —
+          ela não é enviada a nenhum servidor e não pode ser recuperada por nós se for esquecida.
+        </p>
+        <div class="form-grid" style="margin-bottom:12px;">
+          <div><label>Senha atual</label><input id="pwCurrent" type="password"></div>
+          <div></div>
+          <div><label>Nova senha</label><input id="pwNew" type="password"></div>
+          <div><label>Confirmar nova senha</label><input id="pwNew2" type="password"></div>
+        </div>
+        <p id="pwChangeMsg" style="font-size:12.5px; margin-bottom:10px; display:none;"></p>
+        <button class="btn btn-primary" id="btnChangePassword">Alterar senha</button>
+      </div>
+
       <div class="panel" style="margin-top:16px; border-color:rgba(229,72,77,.35);">
         <h3 style="color:var(--red);">Zona de risco</h3>
         <p style="color:var(--text-dim); font-size:13px; margin-bottom:12px;">Apaga todos os dados salvos neste navegador. Exporte um backup antes.</p>
@@ -643,7 +728,7 @@
   </div>
 </div>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
 "use strict";
@@ -651,12 +736,14 @@
 /* ============ CONFIG / STATE ============ */
 const EMPRESAS = ['MTC','ASD','TELETEC','SAUT','AST','KRAFT'];
 const STORAGE_KEY = 'spd_financas_v1';
+const AUTH_KEY = 'spd_auth_v1';
 const THEME_KEY = 'spd_financas_theme';
 
 const STATUS_LABEL = {pendente:'Pendente', parcial:'Parcial', pago:'Pago', cancelado:'Cancelado', vencido:'Vencido'};
 const PRIORIDADE_LABEL = {alta:'Alta', media:'Média', baixa:'Baixa'};
 
-let state = loadState();
+let state = { contas: [], aportes: [] };
+let cryptoKey = null; // derived from the user's password after unlock; kept only in memory
 let ui = {
   view: 'dashboard',
   entityFilter: '',
@@ -671,23 +758,178 @@ let ui = {
   diaContas: [],
 };
 
-function loadState(){
+/* ============ CRYPTO (Web Crypto API — AES-GCM + PBKDF2) ============ */
+const VERIFIER_TEXT = 'spd-unlock-ok';
+function bufToB64(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+function b64ToBuf(b64){ const bin = atob(b64); const arr = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); return arr.buffer; }
+
+async function deriveKey(password, saltB64){
+  const enc = new TextEncoder();
+  const salt = b64ToBuf(saltB64);
+  const baseKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:150000, hash:'SHA-256'},
+    baseKey, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']
+  );
+}
+async function encryptText(key, text){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const cipher = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(text));
+  return {iv: bufToB64(iv), data: bufToB64(cipher)};
+}
+async function decryptText(key, ivB64, dataB64){
+  const dec = new TextDecoder();
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv: b64ToBuf(ivB64)}, key, b64ToBuf(dataB64));
+  return dec.decode(plain);
+}
+
+async function saveState(){
+  if(!cryptoKey){ return; } // should not happen post-unlock, but never write plaintext if it does
+  try{
+    const enc = await encryptText(cryptoKey, JSON.stringify(state));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(enc));
+  }catch(e){ console.error('Falha ao salvar dados', e); alert('Não foi possível salvar os dados neste navegador. Verifique o espaço de armazenamento.'); }
+  if(typeof spScheduleAutoPush === 'function') spScheduleAutoPush();
+}
+
+/* ============ AUTH GATE ============ */
+const authGate = document.getElementById('authGate');
+const authSetupPanel = document.getElementById('authSetupPanel');
+const authUnlockPanel = document.getElementById('authUnlockPanel');
+const authForgotPanel = document.getElementById('authForgotPanel');
+
+function showAuthPanel(which){
+  authSetupPanel.style.display = which==='setup' ? 'block' : 'none';
+  authUnlockPanel.style.display = which==='unlock' ? 'block' : 'none';
+  authForgotPanel.style.display = which==='forgot' ? 'block' : 'none';
+}
+
+async function initAuth(){
+  const authRaw = localStorage.getItem(AUTH_KEY);
+  if(!authRaw){
+    showAuthPanel('setup');
+    document.getElementById('authNewPass').focus();
+  } else {
+    showAuthPanel('unlock');
+    document.getElementById('authPass').focus();
+  }
+}
+
+document.getElementById('btnAuthSetup').addEventListener('click', async ()=>{
+  const p1 = document.getElementById('authNewPass').value;
+  const p2 = document.getElementById('authNewPass2').value;
+  const errEl = document.getElementById('authSetupError');
+  errEl.style.display = 'none';
+  if(p1.length < 6){ errEl.textContent = 'A senha precisa ter pelo menos 6 caracteres.'; errEl.style.display='block'; return; }
+  if(p1 !== p2){ errEl.textContent = 'As senhas não coincidem.'; errEl.style.display='block'; return; }
+
+  const salt = bufToB64(crypto.getRandomValues(new Uint8Array(16)).buffer);
+  const key = await deriveKey(p1, salt);
+  const verifier = await encryptText(key, VERIFIER_TEXT);
+  localStorage.setItem(AUTH_KEY, JSON.stringify({salt, verifier}));
+
+  // migrate any pre-existing plaintext data (e.g. from before password protection existed)
+  let migrated = {contas:[], aportes:[]};
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
-      parsed.contas = parsed.contas || [];
-      parsed.aportes = parsed.aportes || [];
-      return parsed;
+      if(Array.isArray(parsed.contas)) migrated = {contas: parsed.contas||[], aportes: parsed.aportes||[]};
     }
-  }catch(e){ console.error('Falha ao carregar dados salvos', e); }
-  return { contas: [], aportes: [] };
-}
-function saveState(){
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-  catch(e){ alert('Não foi possível salvar os dados neste navegador. Verifique o espaço de armazenamento.'); }
+  }catch(e){ /* raw wasn't plaintext JSON, ignore */ }
+
+  cryptoKey = key;
+  state = migrated;
+  await saveState();
+  authGate.classList.remove('active');
+  startApp();
+});
+
+document.getElementById('btnAuthUnlock').addEventListener('click', unlockAttempt);
+document.getElementById('authPass').addEventListener('keydown', e=>{ if(e.key==='Enter') unlockAttempt(); });
+document.getElementById('authNewPass2').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('btnAuthSetup').click(); });
+
+async function unlockAttempt(){
+  const pass = document.getElementById('authPass').value;
+  const errEl = document.getElementById('authUnlockError');
+  errEl.style.display = 'none';
+  try{
+    const auth = JSON.parse(localStorage.getItem(AUTH_KEY));
+    const key = await deriveKey(pass, auth.salt);
+    const verifierText = await decryptText(key, auth.verifier.iv, auth.verifier.data);
+    if(verifierText !== VERIFIER_TEXT) throw new Error('mismatch');
+
+    cryptoKey = key;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const enc = JSON.parse(raw);
+      const json = await decryptText(cryptoKey, enc.iv, enc.data);
+      const parsed = JSON.parse(json);
+      state = {contas: parsed.contas||[], aportes: parsed.aportes||[]};
+    } else {
+      state = {contas:[], aportes:[]};
+    }
+    authGate.classList.remove('active');
+    startApp();
+  }catch(e){
+    errEl.style.display = 'block';
+    cryptoKey = null;
+  }
 }
 
+document.getElementById('linkForgotPass').addEventListener('click', (e)=>{ e.preventDefault(); showAuthPanel('forgot'); });
+document.getElementById('btnForgotCancel').addEventListener('click', ()=>showAuthPanel('unlock'));
+document.getElementById('btnForgotConfirm').addEventListener('click', ()=>{
+  if(document.getElementById('authForgotConfirm').value.trim().toUpperCase() !== 'APAGAR'){
+    alert('Digite APAGAR (em maiúsculas) para confirmar.');
+    return;
+  }
+  localStorage.removeItem(AUTH_KEY);
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+});
+
+document.getElementById('btnLockNow').addEventListener('click', ()=>{
+  cryptoKey = null;
+  state = {contas:[], aportes:[]};
+  document.getElementById('authPass').value = '';
+  showAuthPanel('unlock');
+  authGate.classList.add('active');
+});
+
+document.getElementById('btnChangePassword').addEventListener('click', async ()=>{
+  const cur = document.getElementById('pwCurrent').value;
+  const n1 = document.getElementById('pwNew').value;
+  const n2 = document.getElementById('pwNew2').value;
+  const msgEl = document.getElementById('pwChangeMsg');
+  msgEl.style.display = 'block';
+  msgEl.style.color = 'var(--red)';
+  try{
+    const auth = JSON.parse(localStorage.getItem(AUTH_KEY));
+    const curKey = await deriveKey(cur, auth.salt);
+    const verifierText = await decryptText(curKey, auth.verifier.iv, auth.verifier.data);
+    if(verifierText !== VERIFIER_TEXT){ msgEl.textContent = 'Senha atual incorreta.'; return; }
+    if(n1.length < 6){ msgEl.textContent = 'A nova senha precisa ter pelo menos 6 caracteres.'; return; }
+    if(n1 !== n2){ msgEl.textContent = 'As novas senhas não coincidem.'; return; }
+
+    const newSalt = bufToB64(crypto.getRandomValues(new Uint8Array(16)).buffer);
+    const newKey = await deriveKey(n1, newSalt);
+    const newVerifier = await encryptText(newKey, VERIFIER_TEXT);
+    localStorage.setItem(AUTH_KEY, JSON.stringify({salt:newSalt, verifier:newVerifier}));
+    cryptoKey = newKey;
+    await saveState();
+    msgEl.style.color = 'var(--green)';
+    msgEl.textContent = 'Senha alterada com sucesso.';
+    document.getElementById('pwCurrent').value = '';
+    document.getElementById('pwNew').value = '';
+    document.getElementById('pwNew2').value = '';
+  }catch(e){
+    msgEl.textContent = 'Não foi possível alterar a senha. Tente novamente.';
+  }
+});
+
+initAuth();
 function uid(){ return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function todayISO(){ return new Date().toISOString().slice(0,10); }
 function fmtBRL(v){ return (Number(v)||0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'}); }
@@ -1692,130 +1934,160 @@ document.getElementById('btnWipe').addEventListener('click', ()=>{
   renderAll();
 });
 
-/* ============ GOOGLE DRIVE SYNC ============ */
-const GDRIVE_FILE_NAME = 'spd-financas-backup.json';
-const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-let gClientIdSaved = localStorage.getItem('spd_google_client_id') || '';
-let gTokenClient = null;
-let gAccessToken = null;
-let gFileId = localStorage.getItem('spd_gdrive_file_id') || null;
+/* ============ SUPABASE SYNC ============ */
+let spClient = null;
+let spSession = null;
+let spAutoSyncEnabled = localStorage.getItem('spd_supabase_autosync') === 'true';
+let spPushTimer = null;
 
-document.getElementById('gClientId').value = gClientIdSaved;
+document.getElementById('spUrl').value = localStorage.getItem('spd_supabase_url') || '';
+document.getElementById('spKey').value = localStorage.getItem('spd_supabase_key') || '';
+document.getElementById('spAutoSync').checked = spAutoSyncEnabled;
 
-function gSetStatus(msg){
-  document.getElementById('gDriveStatus').textContent = 'Status: ' + msg;
+function spSetStatus(msg, isError){
+  const el = document.getElementById('spStatus');
+  el.textContent = 'Status: ' + msg;
+  el.style.color = isError ? 'var(--red)' : 'var(--text-faint)';
 }
-function gEnableButtons(connected){
-  document.getElementById('btnGDriveUpload').disabled = !connected;
-  document.getElementById('btnGDriveDownload').disabled = !connected;
+function spEnableDataButtons(on){
+  document.getElementById('btnSpUpload').disabled = !on;
+  document.getElementById('btnSpDownload').disabled = !on;
+}
+function spEnableAuthButtons(loggedIn){
+  document.getElementById('btnSpSignOut').disabled = !loggedIn;
+  spEnableDataButtons(loggedIn);
 }
 
-document.getElementById('btnSaveClientId').addEventListener('click', ()=>{
-  const id = document.getElementById('gClientId').value.trim();
-  if(!id){ alert('Cole o Client ID gerado no Google Cloud Console.'); return; }
-  gClientIdSaved = id;
-  localStorage.setItem('spd_google_client_id', id);
-  gTokenClient = null;
-  alert('Client ID salvo. Agora clique em "Conectar ao Google Drive".');
+function spInitClient(){
+  const url = document.getElementById('spUrl').value.trim();
+  const key = document.getElementById('spKey').value.trim();
+  if(!url || !key) return null;
+  if(typeof supabase === 'undefined'){
+    spSetStatus('a biblioteca do Supabase ainda não carregou. Verifique sua conexão.', true);
+    return null;
+  }
+  if(!spClient || spClient.__url !== url || spClient.__key !== key){
+    spClient = supabase.createClient(url, key);
+    spClient.__url = url; spClient.__key = key;
+  }
+  return spClient;
+}
+
+document.getElementById('btnSpSaveCreds').addEventListener('click', ()=>{
+  const url = document.getElementById('spUrl').value.trim();
+  const key = document.getElementById('spKey').value.trim();
+  if(!url || !key){ alert('Preencha a Project URL e a Anon public key.'); return; }
+  localStorage.setItem('spd_supabase_url', url);
+  localStorage.setItem('spd_supabase_key', key);
+  spInitClient();
+  spSetStatus('credenciais salvas. Agora crie sua conta ou entre.');
+  spCheckSession();
 });
 
-document.getElementById('btnGDriveConnect').addEventListener('click', ()=>{
-  if(!gClientIdSaved){ alert('Salve o Client ID primeiro.'); return; }
-  if(typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2){
-    alert('A biblioteca do Google ainda não carregou, ou este app não está sendo aberto via http/https. Verifique sua conexão e tente novamente.');
-    return;
+async function spCheckSession(){
+  const client = spInitClient();
+  if(!client) return;
+  try{
+    const {data} = await client.auth.getSession();
+    if(data && data.session){
+      spSession = data.session;
+      spSetStatus('conectado como ' + spSession.user.email + '.');
+      spEnableAuthButtons(true);
+    } else {
+      spSetStatus('credenciais salvas. Faça login para sincronizar.');
+      spEnableAuthButtons(false);
+    }
+  }catch(e){
+    spSetStatus('não foi possível verificar a sessão.', true);
   }
-  if(!gTokenClient){
-    gTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: gClientIdSaved,
-      scope: GDRIVE_SCOPE,
-      callback: (resp)=>{
-        if(resp.error){ gSetStatus('falha ao conectar (' + resp.error + ').'); return; }
-        gAccessToken = resp.access_token;
-        gSetStatus('conectado ao Google Drive.');
-        gEnableButtons(true);
-        gFindExistingFile();
-      },
-    });
+}
+
+document.getElementById('btnSpSignUp').addEventListener('click', async ()=>{
+  const client = spInitClient();
+  if(!client){ alert('Salve a Project URL e a Anon key primeiro.'); return; }
+  const email = document.getElementById('spEmail').value.trim();
+  const password = document.getElementById('spPassword').value;
+  if(!email || password.length < 6){ alert('Informe um e-mail válido e uma senha com pelo menos 6 caracteres.'); return; }
+  spSetStatus('criando conta...');
+  const {data, error} = await client.auth.signUp({email, password});
+  if(error){ spSetStatus('falha ao criar conta: ' + error.message, true); return; }
+  if(data.session){
+    spSession = data.session;
+    spSetStatus('conta criada e conectado como ' + spSession.user.email + '.');
+    spEnableAuthButtons(true);
+  } else {
+    spSetStatus('conta criada. Verifique seu e-mail para confirmar o acesso, depois clique em Entrar.');
   }
-  gTokenClient.requestAccessToken({prompt: gAccessToken ? '' : 'consent'});
 });
 
-async function gFindExistingFile(){
-  try{
-    const q = encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and trashed=false`);
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,modifiedTime)`, {
-      headers: {Authorization: `Bearer ${gAccessToken}`}
-    });
-    const data = await res.json();
-    if(data.files && data.files.length){
-      gFileId = data.files[0].id;
-      localStorage.setItem('spd_gdrive_file_id', gFileId);
-      gSetStatus(`conectado. Backup existente encontrado (última alteração ${new Date(data.files[0].modifiedTime).toLocaleString('pt-BR')}).`);
-    } else {
-      gSetStatus('conectado. Nenhum backup encontrado ainda no Drive — use "Enviar dados para o Drive".');
-    }
-  }catch(e){
-    gSetStatus('conectado, mas não foi possível checar arquivos existentes.');
-  }
+document.getElementById('btnSpSignIn').addEventListener('click', async ()=>{
+  const client = spInitClient();
+  if(!client){ alert('Salve a Project URL e a Anon key primeiro.'); return; }
+  const email = document.getElementById('spEmail').value.trim();
+  const password = document.getElementById('spPassword').value;
+  if(!email || !password){ alert('Informe e-mail e senha.'); return; }
+  spSetStatus('entrando...');
+  const {data, error} = await client.auth.signInWithPassword({email, password});
+  if(error){ spSetStatus('falha ao entrar: ' + error.message, true); return; }
+  spSession = data.session;
+  spSetStatus('conectado como ' + spSession.user.email + '.');
+  spEnableAuthButtons(true);
+});
+
+document.getElementById('btnSpSignOut').addEventListener('click', async ()=>{
+  if(!spClient) return;
+  await spClient.auth.signOut();
+  spSession = null;
+  spSetStatus('desconectado.');
+  spEnableAuthButtons(false);
+});
+
+document.getElementById('spAutoSync').addEventListener('change', (e)=>{
+  spAutoSyncEnabled = e.target.checked;
+  localStorage.setItem('spd_supabase_autosync', String(spAutoSyncEnabled));
+});
+
+async function spUpload(){
+  const client = spInitClient();
+  if(!client || !spSession){ alert('Entre com sua conta do Supabase primeiro.'); return; }
+  spSetStatus('enviando...');
+  const {error} = await client.from('financas_backup').upsert({
+    user_id: spSession.user.id,
+    data: state,
+    updated_at: new Date().toISOString()
+  }, {onConflict: 'user_id'});
+  if(error){ spSetStatus('falha ao enviar: ' + error.message, true); return; }
+  spSetStatus('dados enviados ao Supabase em ' + new Date().toLocaleString('pt-BR') + '.');
 }
 
-async function gUpload(){
-  if(!gAccessToken){ alert('Conecte-se ao Google Drive primeiro.'); return; }
-  gSetStatus('enviando...');
-  const content = JSON.stringify(state, null, 2);
-  const metadata = {name: GDRIVE_FILE_NAME, mimeType: 'application/json'};
-  const boundary = 'spdboundary' + Date.now();
-  const body =
-    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
-    `--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
-
-  const url = gFileId
-    ? `https://www.googleapis.com/upload/drive/v3/files/${gFileId}?uploadType=multipart`
-    : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
-  try{
-    const res = await fetch(url, {
-      method: gFileId ? 'PATCH' : 'POST',
-      headers: {Authorization: `Bearer ${gAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}`},
-      body
-    });
-    const data = await res.json();
-    if(data.id){
-      gFileId = data.id;
-      localStorage.setItem('spd_gdrive_file_id', gFileId);
-      gSetStatus('dados enviados para o Drive em ' + new Date().toLocaleString('pt-BR') + '.');
-    } else {
-      gSetStatus('falha ao enviar. Tente conectar novamente.');
-    }
-  }catch(e){
-    gSetStatus('falha ao enviar (verifique sua conexão).');
-  }
+async function spDownload(){
+  const client = spInitClient();
+  if(!client || !spSession){ alert('Entre com sua conta do Supabase primeiro.'); return; }
+  if(!confirm('Isso substituirá os dados atuais deste navegador pelos dados salvos no Supabase. Continuar?')) return;
+  spSetStatus('baixando...');
+  const {data, error} = await client.from('financas_backup').select('data').eq('user_id', spSession.user.id).maybeSingle();
+  if(error){ spSetStatus('falha ao baixar: ' + error.message, true); return; }
+  if(!data){ spSetStatus('nenhum backup encontrado no Supabase ainda — use "Enviar dados" primeiro.', true); return; }
+  const parsed = data.data;
+  if(!parsed || !Array.isArray(parsed.contas)){ spSetStatus('formato de dados inválido no Supabase.', true); return; }
+  parsed.aportes = parsed.aportes || [];
+  state = parsed;
+  await saveState();
+  refreshCategoriaDatalist();
+  renderAll();
+  spSetStatus('dados baixados do Supabase em ' + new Date().toLocaleString('pt-BR') + '.');
 }
 
-async function gDownload(){
-  if(!gAccessToken){ alert('Conecte-se ao Google Drive primeiro.'); return; }
-  if(!gFileId){ await gFindExistingFile(); if(!gFileId){ alert('Nenhum backup encontrado no Drive ainda.'); return; } }
-  if(!confirm('Isso substituirá os dados atuais deste navegador pelos dados salvos no Drive. Continuar?')) return;
-  gSetStatus('baixando...');
-  try{
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${gFileId}?alt=media`, {
-      headers: {Authorization: `Bearer ${gAccessToken}`}
-    });
-    const data = await res.json();
-    if(!data || !Array.isArray(data.contas)) throw new Error('formato inválido');
-    data.aportes = data.aportes || [];
-    state = data;
-    saveState();
-    refreshCategoriaDatalist();
-    renderAll();
-    gSetStatus('dados baixados do Drive em ' + new Date().toLocaleString('pt-BR') + '.');
-  }catch(e){
-    gSetStatus('falha ao baixar os dados do Drive.');
-  }
+document.getElementById('btnSpUpload').addEventListener('click', spUpload);
+document.getElementById('btnSpDownload').addEventListener('click', spDownload);
+
+function spScheduleAutoPush(){
+  if(!spAutoSyncEnabled || !spSession) return;
+  clearTimeout(spPushTimer);
+  spPushTimer = setTimeout(()=>{ spUpload(); }, 1500);
 }
 
-document.getElementById('btnGDriveUpload').addEventListener('click', gUpload);
-document.getElementById('btnGDriveDownload').addEventListener('click', gDownload);
+spCheckSession();
 
 /* ============ RENDER ALL ============ */
 function renderAll(){
@@ -1827,9 +2099,11 @@ function renderAll(){
 }
 
 /* ============ INIT ============ */
-populateEntitySelects();
-refreshCategoriaDatalist();
-renderAll();
+function startApp(){
+  populateEntitySelects();
+  refreshCategoriaDatalist();
+  renderAll();
+}
 
 })();
 
