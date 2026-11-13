@@ -284,49 +284,16 @@
       <div style="font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.08em;">Controle Financeiro — acesso protegido</div>
     </div>
 
-    <div id="authSetupPanel" style="display:none;">
-      <h2 style="font-size:15px;">Criar senha de acesso</h2>
-      <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:14px;">
-        Primeiro acesso neste navegador. Crie uma senha para proteger os dados financeiros do grupo.
-        Ela fica só neste dispositivo — <strong>se for esquecida, não há como recuperar os dados</strong>, só zerar e recomeçar.
-        Guarde-a em local seguro.
-      </p>
+    <div id="authLoginPanel">
+      <h2 style="font-size:15px;">Entrar</h2>
+      <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:14px;">Use o e-mail e a senha da sua conta (Supabase). Os dados são carregados da nuvem após o login.</p>
       <div class="form-grid">
-        <div class="full"><label>Senha (mín. 6 caracteres)</label><input id="authNewPass" type="password" autocomplete="new-password"></div>
-        <div class="full"><label>Confirmar senha</label><input id="authNewPass2" type="password" autocomplete="new-password"></div>
-      </div>
-      <p id="authSetupError" style="color:var(--red); font-size:12.5px; margin-top:8px; display:none;"></p>
-      <div class="modal-actions" style="justify-content:stretch;">
-        <button class="btn btn-primary" id="btnAuthSetup" style="width:100%; justify-content:center;">Criar senha e entrar</button>
-      </div>
-    </div>
-
-    <div id="authUnlockPanel" style="display:none;">
-      <h2 style="font-size:15px;">Digite a senha</h2>
-      <div class="form-grid">
+        <div class="full"><label>E-mail</label><input id="authEmail" type="email" autocomplete="username" placeholder="seu@email.com"></div>
         <div class="full"><label>Senha</label><input id="authPass" type="password" autocomplete="current-password"></div>
       </div>
-      <p id="authUnlockError" style="color:var(--red); font-size:12.5px; margin-top:8px; display:none;">Senha incorreta.</p>
+      <p id="authLoginError" style="color:var(--red); font-size:12.5px; margin-top:8px; display:none;"></p>
       <div class="modal-actions" style="justify-content:stretch;">
-        <button class="btn btn-primary" id="btnAuthUnlock" style="width:100%; justify-content:center;">Entrar</button>
-      </div>
-      <p style="text-align:center; margin-top:14px;">
-        <a href="#" id="linkForgotPass" style="font-size:11.5px; color:var(--text-faint);">Esqueci minha senha</a>
-      </p>
-    </div>
-
-    <div id="authForgotPanel" style="display:none;">
-      <h2 style="font-size:15px; color:var(--red);">Redefinir acesso</h2>
-      <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:14px;">
-        Sem a senha não é possível recuperar os dados salvos neste navegador — só apagar tudo e recomeçar do zero.
-        Se você tiver um backup exportado (.json) ou sincronização com o Supabase, poderá restaurar os dados depois de recriar a senha.
-      </p>
-      <div class="form-grid">
-        <div class="full"><label>Digite APAGAR para confirmar</label><input id="authForgotConfirm" placeholder="APAGAR"></div>
-      </div>
-      <div class="modal-actions" style="justify-content:stretch; gap:8px;">
-        <button class="btn" id="btnForgotCancel" style="width:100%; justify-content:center;">Cancelar</button>
-        <button class="btn btn-danger" id="btnForgotConfirm" style="width:100%; justify-content:center;">Apagar tudo e recomeçar</button>
+        <button class="btn btn-primary" id="btnAuthLogin" style="width:100%; justify-content:center;">Entrar</button>
       </div>
     </div>
   </div>
@@ -545,7 +512,9 @@
       <div class="panel" style="margin-top:16px;">
         <h3>Sincronização com Supabase</h3>
         <p style="color:var(--text-dim); font-size:13px; margin-bottom:14px;">
-          Guarda os dados num banco de dados na nuvem, sincronizando automaticamente entre qualquer aparelho onde você entrar com a sua conta.
+          Guarda os dados num banco de dados na nuvem. Assim que você entra com sua conta, o app <strong>puxa sozinho</strong> os dados mais
+          recentes do Supabase (ou envia os daqui, se a nuvem ainda estiver vazia) — e depois disso, toda alteração é enviada automaticamente,
+          sem precisar clicar em nada. Assim os mesmos dados aparecem em qualquer navegador ou aparelho onde você entrar com essa conta.
           Protegido por login (e-mail/senha) e por regras de segurança no banco — só você, autenticado, acessa seus dados.
           <strong>Atenção:</strong> diferente dos dados no navegador (que ficam criptografados localmente), o que é enviado ao Supabase fica em texto
           normal no banco, protegido pelo login — trate as credenciais do Supabase como confidenciais.
@@ -567,8 +536,8 @@
           <button class="btn" id="btnSpSignOut" disabled>Sair</button>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <button class="btn" id="btnSpUpload" disabled>Enviar dados para o Supabase</button>
-          <button class="btn" id="btnSpDownload" disabled>Baixar dados do Supabase</button>
+          <button class="btn" id="btnSpUpload" disabled>Forçar envio agora</button>
+          <button class="btn" id="btnSpDownload" disabled>Forçar download agora</button>
           <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim);">
             <input type="checkbox" id="spAutoSync" style="width:auto;"> Sincronizar automaticamente após cada alteração
           </label>
@@ -581,22 +550,6 @@
         <input type="file" id="importCsvFile" accept=".csv">
         <button class="btn" id="btnImportCsv" style="margin-left:8px;">Importar CSV</button>
       </div>
-      <div class="panel" style="margin-top:16px;">
-        <h3>Senha de acesso</h3>
-        <p style="color:var(--text-dim); font-size:13px; margin-bottom:14px;">
-          O app fica protegido por senha neste navegador. Os dados são gravados de forma cifrada (criptografados) usando essa senha —
-          ela não é enviada a nenhum servidor e não pode ser recuperada por nós se for esquecida.
-        </p>
-        <div class="form-grid" style="margin-bottom:12px;">
-          <div><label>Senha atual</label><input id="pwCurrent" type="password"></div>
-          <div></div>
-          <div><label>Nova senha</label><input id="pwNew" type="password"></div>
-          <div><label>Confirmar nova senha</label><input id="pwNew2" type="password"></div>
-        </div>
-        <p id="pwChangeMsg" style="font-size:12.5px; margin-bottom:10px; display:none;"></p>
-        <button class="btn btn-primary" id="btnChangePassword">Alterar senha</button>
-      </div>
-
       <div class="panel" style="margin-top:16px; border-color:rgba(229,72,77,.35);">
         <h3 style="color:var(--red);">Zona de risco</h3>
         <p style="color:var(--text-dim); font-size:13px; margin-bottom:12px;">Apaga todos os dados salvos neste navegador. Exporte um backup antes.</p>
@@ -784,149 +737,93 @@ async function decryptText(key, ivB64, dataB64){
   return dec.decode(plain);
 }
 
-async function saveState(){
+async function saveState(skipCloudPush){
   if(!cryptoKey){ return; } // should not happen post-unlock, but never write plaintext if it does
   try{
     const enc = await encryptText(cryptoKey, JSON.stringify(state));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(enc));
   }catch(e){ console.error('Falha ao salvar dados', e); alert('Não foi possível salvar os dados neste navegador. Verifique o espaço de armazenamento.'); }
-  if(typeof spScheduleAutoPush === 'function') spScheduleAutoPush();
+  if(!skipCloudPush && typeof spScheduleAutoPush === 'function') spScheduleAutoPush();
 }
+// Saves to the local encrypted cache only — used right after pulling fresh data FROM
+// Supabase, so we don't immediately push the same data straight back up.
+async function saveStateLocalOnly(){ return saveState(true); }
 
-/* ============ AUTH GATE ============ */
+/* ============ AUTH GATE (login via Supabase e-mail + senha) ============ */
+const SP_URL = 'https://tcbxrqgkmsghngwravkx.supabase.co';
+const SP_KEY = 'sb_publishable_3qHWp9LKYgJruFEQg4FL4w_C9-67DIL'; // chave publicável (segura no navegador)
+const SALT_KEY = 'spd_local_salt_v2';
 const authGate = document.getElementById('authGate');
-const authSetupPanel = document.getElementById('authSetupPanel');
-const authUnlockPanel = document.getElementById('authUnlockPanel');
-const authForgotPanel = document.getElementById('authForgotPanel');
 
-function showAuthPanel(which){
-  authSetupPanel.style.display = which==='setup' ? 'block' : 'none';
-  authUnlockPanel.style.display = which==='unlock' ? 'block' : 'none';
-  authForgotPanel.style.display = which==='forgot' ? 'block' : 'none';
+function getLocalSalt(){
+  let salt = localStorage.getItem(SALT_KEY);
+  if(!salt){ salt = bufToB64(crypto.getRandomValues(new Uint8Array(16)).buffer); localStorage.setItem(SALT_KEY, salt); }
+  return salt;
 }
 
-async function initAuth(){
-  const authRaw = localStorage.getItem(AUTH_KEY);
-  if(!authRaw){
-    showAuthPanel('setup');
-    document.getElementById('authNewPass').focus();
-  } else {
-    showAuthPanel('unlock');
-    document.getElementById('authPass').focus();
-  }
+function authShowError(msg){
+  const el = document.getElementById('authLoginError');
+  el.textContent = msg; el.style.display = msg ? 'block' : 'none';
 }
 
-document.getElementById('btnAuthSetup').addEventListener('click', async ()=>{
-  const p1 = document.getElementById('authNewPass').value;
-  const p2 = document.getElementById('authNewPass2').value;
-  const errEl = document.getElementById('authSetupError');
-  errEl.style.display = 'none';
-  if(p1.length < 6){ errEl.textContent = 'A senha precisa ter pelo menos 6 caracteres.'; errEl.style.display='block'; return; }
-  if(p1 !== p2){ errEl.textContent = 'As senhas não coincidem.'; errEl.style.display='block'; return; }
+function initAuth(){
+  const saved = localStorage.getItem('spd_login_email') || '';
+  document.getElementById('authEmail').value = saved;
+  document.getElementById(saved ? 'authPass' : 'authEmail').focus();
+}
 
-  const salt = bufToB64(crypto.getRandomValues(new Uint8Array(16)).buffer);
-  const key = await deriveKey(p1, salt);
-  const verifier = await encryptText(key, VERIFIER_TEXT);
-  localStorage.setItem(AUTH_KEY, JSON.stringify({salt, verifier}));
-
-  // migrate any pre-existing plaintext data (e.g. from before password protection existed)
-  let migrated = {contas:[], aportes:[]};
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const parsed = JSON.parse(raw);
-      if(Array.isArray(parsed.contas)) migrated = {contas: parsed.contas||[], aportes: parsed.aportes||[]};
-    }
-  }catch(e){ /* raw wasn't plaintext JSON, ignore */ }
-
-  cryptoKey = key;
-  state = migrated;
-  await saveState();
-  authGate.classList.remove('active');
-  startApp();
-});
-
-document.getElementById('btnAuthUnlock').addEventListener('click', unlockAttempt);
-document.getElementById('authPass').addEventListener('keydown', e=>{ if(e.key==='Enter') unlockAttempt(); });
-document.getElementById('authNewPass2').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('btnAuthSetup').click(); });
-
-async function unlockAttempt(){
+async function loginAttempt(){
+  const email = document.getElementById('authEmail').value.trim();
   const pass = document.getElementById('authPass').value;
-  const errEl = document.getElementById('authUnlockError');
-  errEl.style.display = 'none';
+  const btn = document.getElementById('btnAuthLogin');
+  authShowError('');
+  if(!email || !pass){ authShowError('Informe e-mail e senha.'); return; }
+  if(typeof supabase === 'undefined'){ authShowError('Não foi possível carregar o Supabase. Verifique a conexão.'); return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
   try{
-    const auth = JSON.parse(localStorage.getItem(AUTH_KEY));
-    const key = await deriveKey(pass, auth.salt);
-    const verifierText = await decryptText(key, auth.verifier.iv, auth.verifier.data);
-    if(verifierText !== VERIFIER_TEXT) throw new Error('mismatch');
-
-    cryptoKey = key;
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const enc = JSON.parse(raw);
-      const json = await decryptText(cryptoKey, enc.iv, enc.data);
-      const parsed = JSON.parse(json);
-      state = {contas: parsed.contas||[], aportes: parsed.aportes||[]};
-    } else {
-      state = {contas:[], aportes:[]};
+    const client = spInitClient();
+    const {data, error} = await client.auth.signInWithPassword({email, password: pass});
+    if(error){
+      authShowError(/invalid/i.test(error.message) ? 'E-mail ou senha incorretos.' : 'Falha ao entrar: ' + error.message);
+      return;
     }
+    spSession = data.session;
+    const {data: row, error: err2} = await client.from('financas_backup').select('data').eq('user_id', spSession.user.id).maybeSingle();
+    if(err2){ authShowError('Entrou, mas não foi possível ler os dados: ' + err2.message); await client.auth.signOut(); spSession = null; return; }
+    if(!row || !row.data || !Array.isArray(row.data.contas)){
+      authShowError('Login ok, mas não há dados salvos para esta conta no Supabase.');
+      await client.auth.signOut(); spSession = null; return;
+    }
+    state = row.data;
+    state.aportes = state.aportes || [];
+    cryptoKey = await deriveKey(pass, getLocalSalt()); // cache local cifrado com a senha
+    localStorage.setItem('spd_login_email', email);
+    await saveStateLocalOnly();
+    document.getElementById('authPass').value = '';
     authGate.classList.remove('active');
+    spEnableAuthButtons(true);
+    spSetStatus('conectado como ' + spSession.user.email + '.');
     startApp();
   }catch(e){
-    errEl.style.display = 'block';
-    cryptoKey = null;
+    authShowError('Erro inesperado ao entrar. Tente novamente.');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Entrar';
   }
 }
 
-document.getElementById('linkForgotPass').addEventListener('click', (e)=>{ e.preventDefault(); showAuthPanel('forgot'); });
-document.getElementById('btnForgotCancel').addEventListener('click', ()=>showAuthPanel('unlock'));
-document.getElementById('btnForgotConfirm').addEventListener('click', ()=>{
-  if(document.getElementById('authForgotConfirm').value.trim().toUpperCase() !== 'APAGAR'){
-    alert('Digite APAGAR (em maiúsculas) para confirmar.');
-    return;
-  }
-  localStorage.removeItem(AUTH_KEY);
-  localStorage.removeItem(STORAGE_KEY);
-  location.reload();
-});
+document.getElementById('btnAuthLogin').addEventListener('click', loginAttempt);
+document.getElementById('authPass').addEventListener('keydown', e=>{ if(e.key==='Enter') loginAttempt(); });
+document.getElementById('authEmail').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('authPass').focus(); });
 
-document.getElementById('btnLockNow').addEventListener('click', ()=>{
+document.getElementById('btnLockNow').addEventListener('click', async ()=>{
+  try{ if(spClient) await spClient.auth.signOut(); }catch(e){}
+  spSession = null;
   cryptoKey = null;
   state = {contas:[], aportes:[]};
+  localStorage.removeItem(STORAGE_KEY);
   document.getElementById('authPass').value = '';
-  showAuthPanel('unlock');
   authGate.classList.add('active');
-});
-
-document.getElementById('btnChangePassword').addEventListener('click', async ()=>{
-  const cur = document.getElementById('pwCurrent').value;
-  const n1 = document.getElementById('pwNew').value;
-  const n2 = document.getElementById('pwNew2').value;
-  const msgEl = document.getElementById('pwChangeMsg');
-  msgEl.style.display = 'block';
-  msgEl.style.color = 'var(--red)';
-  try{
-    const auth = JSON.parse(localStorage.getItem(AUTH_KEY));
-    const curKey = await deriveKey(cur, auth.salt);
-    const verifierText = await decryptText(curKey, auth.verifier.iv, auth.verifier.data);
-    if(verifierText !== VERIFIER_TEXT){ msgEl.textContent = 'Senha atual incorreta.'; return; }
-    if(n1.length < 6){ msgEl.textContent = 'A nova senha precisa ter pelo menos 6 caracteres.'; return; }
-    if(n1 !== n2){ msgEl.textContent = 'As novas senhas não coincidem.'; return; }
-
-    const newSalt = bufToB64(crypto.getRandomValues(new Uint8Array(16)).buffer);
-    const newKey = await deriveKey(n1, newSalt);
-    const newVerifier = await encryptText(newKey, VERIFIER_TEXT);
-    localStorage.setItem(AUTH_KEY, JSON.stringify({salt:newSalt, verifier:newVerifier}));
-    cryptoKey = newKey;
-    await saveState();
-    msgEl.style.color = 'var(--green)';
-    msgEl.textContent = 'Senha alterada com sucesso.';
-    document.getElementById('pwCurrent').value = '';
-    document.getElementById('pwNew').value = '';
-    document.getElementById('pwNew2').value = '';
-  }catch(e){
-    msgEl.textContent = 'Não foi possível alterar a senha. Tente novamente.';
-  }
+  initAuth();
 });
 
 initAuth();
@@ -1937,11 +1834,11 @@ document.getElementById('btnWipe').addEventListener('click', ()=>{
 /* ============ SUPABASE SYNC ============ */
 let spClient = null;
 let spSession = null;
-let spAutoSyncEnabled = localStorage.getItem('spd_supabase_autosync') === 'true';
+let spAutoSyncEnabled = localStorage.getItem('spd_supabase_autosync') !== 'false'; // default ON
 let spPushTimer = null;
 
-document.getElementById('spUrl').value = localStorage.getItem('spd_supabase_url') || '';
-document.getElementById('spKey').value = localStorage.getItem('spd_supabase_key') || '';
+document.getElementById('spUrl').value = SP_URL;
+document.getElementById('spKey').value = SP_KEY;
 document.getElementById('spAutoSync').checked = spAutoSyncEnabled;
 
 function spSetStatus(msg, isError){
@@ -1973,7 +1870,7 @@ function spInitClient(){
   return spClient;
 }
 
-document.getElementById('btnSpSaveCreds').addEventListener('click', ()=>{
+document.getElementById('btnSpSaveCreds').addEventListener('click', async ()=>{
   const url = document.getElementById('spUrl').value.trim();
   const key = document.getElementById('spKey').value.trim();
   if(!url || !key){ alert('Preencha a Project URL e a Anon public key.'); return; }
@@ -1981,8 +1878,32 @@ document.getElementById('btnSpSaveCreds').addEventListener('click', ()=>{
   localStorage.setItem('spd_supabase_key', key);
   spInitClient();
   spSetStatus('credenciais salvas. Agora crie sua conta ou entre.');
-  spCheckSession();
+  await spCheckSession();
 });
+
+// Pulls the cloud copy and applies it locally. If there's nothing in the cloud yet,
+// pushes the current local data up instead (first-time seed). Fully silent/automatic —
+// no confirm dialogs — since this runs without the person clicking anything.
+async function spPullOrSeed(){
+  const client = spInitClient();
+  if(!client || !spSession) return;
+  try{
+    const {data: row, error} = await client.from('financas_backup').select('data').eq('user_id', spSession.user.id).maybeSingle();
+    if(error) return;
+    if(row && row.data && Array.isArray(row.data.contas)){
+      const parsed = row.data;
+      parsed.aportes = parsed.aportes || [];
+      state = parsed;
+      await saveStateLocalOnly();
+      refreshCategoriaDatalist();
+      renderAll();
+      spSetStatus('sincronizado com o Supabase — conectado como ' + spSession.user.email + '.');
+    } else {
+      // nothing in the cloud yet for this account — seed it with what's here locally
+      await spUpload();
+    }
+  }catch(e){ /* stay silent — this is a background sync attempt */ }
+}
 
 async function spCheckSession(){
   const client = spInitClient();
@@ -1991,8 +1912,9 @@ async function spCheckSession(){
     const {data} = await client.auth.getSession();
     if(data && data.session){
       spSession = data.session;
-      spSetStatus('conectado como ' + spSession.user.email + '.');
       spEnableAuthButtons(true);
+      spSetStatus('conectado como ' + spSession.user.email + '. Sincronizando...');
+      await spPullOrSeed();
     } else {
       spSetStatus('credenciais salvas. Faça login para sincronizar.');
       spEnableAuthButtons(false);
@@ -2013,8 +1935,9 @@ document.getElementById('btnSpSignUp').addEventListener('click', async ()=>{
   if(error){ spSetStatus('falha ao criar conta: ' + error.message, true); return; }
   if(data.session){
     spSession = data.session;
-    spSetStatus('conta criada e conectado como ' + spSession.user.email + '.');
     spEnableAuthButtons(true);
+    spSetStatus('conta criada e conectado como ' + spSession.user.email + '. Sincronizando...');
+    await spPullOrSeed();
   } else {
     spSetStatus('conta criada. Verifique seu e-mail para confirmar o acesso, depois clique em Entrar.');
   }
@@ -2030,8 +1953,9 @@ document.getElementById('btnSpSignIn').addEventListener('click', async ()=>{
   const {data, error} = await client.auth.signInWithPassword({email, password});
   if(error){ spSetStatus('falha ao entrar: ' + error.message, true); return; }
   spSession = data.session;
-  spSetStatus('conectado como ' + spSession.user.email + '.');
   spEnableAuthButtons(true);
+  spSetStatus('conectado como ' + spSession.user.email + '. Sincronizando...');
+  await spPullOrSeed();
 });
 
 document.getElementById('btnSpSignOut').addEventListener('click', async ()=>{
@@ -2051,13 +1975,15 @@ async function spUpload(){
   const client = spInitClient();
   if(!client || !spSession){ alert('Entre com sua conta do Supabase primeiro.'); return; }
   spSetStatus('enviando...');
-  const {error} = await client.from('financas_backup').upsert({
-    user_id: spSession.user.id,
-    data: state,
-    updated_at: new Date().toISOString()
-  }, {onConflict: 'user_id'});
-  if(error){ spSetStatus('falha ao enviar: ' + error.message, true); return; }
-  spSetStatus('dados enviados ao Supabase em ' + new Date().toLocaleString('pt-BR') + '.');
+  try{
+    const {error} = await client.from('financas_backup').upsert({
+      user_id: spSession.user.id,
+      data: state,
+      updated_at: new Date().toISOString()
+    }, {onConflict: 'user_id'});
+    if(error){ spSetStatus('falha ao enviar: ' + error.message, true); return; }
+    spSetStatus('sincronizado com o Supabase (enviado) em ' + new Date().toLocaleString('pt-BR') + '.');
+  }catch(e){ spSetStatus('falha ao enviar — verifique sua conexão.', true); }
 }
 
 async function spDownload(){
@@ -2065,17 +1991,19 @@ async function spDownload(){
   if(!client || !spSession){ alert('Entre com sua conta do Supabase primeiro.'); return; }
   if(!confirm('Isso substituirá os dados atuais deste navegador pelos dados salvos no Supabase. Continuar?')) return;
   spSetStatus('baixando...');
-  const {data, error} = await client.from('financas_backup').select('data').eq('user_id', spSession.user.id).maybeSingle();
-  if(error){ spSetStatus('falha ao baixar: ' + error.message, true); return; }
-  if(!data){ spSetStatus('nenhum backup encontrado no Supabase ainda — use "Enviar dados" primeiro.', true); return; }
-  const parsed = data.data;
-  if(!parsed || !Array.isArray(parsed.contas)){ spSetStatus('formato de dados inválido no Supabase.', true); return; }
-  parsed.aportes = parsed.aportes || [];
-  state = parsed;
-  await saveState();
-  refreshCategoriaDatalist();
-  renderAll();
-  spSetStatus('dados baixados do Supabase em ' + new Date().toLocaleString('pt-BR') + '.');
+  try{
+    const {data, error} = await client.from('financas_backup').select('data').eq('user_id', spSession.user.id).maybeSingle();
+    if(error){ spSetStatus('falha ao baixar: ' + error.message, true); return; }
+    if(!data){ spSetStatus('nenhum backup encontrado no Supabase ainda — use "Enviar dados" primeiro.', true); return; }
+    const parsed = data.data;
+    if(!parsed || !Array.isArray(parsed.contas)){ spSetStatus('formato de dados inválido no Supabase.', true); return; }
+    parsed.aportes = parsed.aportes || [];
+    state = parsed;
+    await saveState();
+    refreshCategoriaDatalist();
+    renderAll();
+    spSetStatus('dados baixados do Supabase em ' + new Date().toLocaleString('pt-BR') + '.');
+  }catch(e){ spSetStatus('falha ao baixar — verifique sua conexão.', true); }
 }
 
 document.getElementById('btnSpUpload').addEventListener('click', spUpload);
@@ -2086,8 +2014,6 @@ function spScheduleAutoPush(){
   clearTimeout(spPushTimer);
   spPushTimer = setTimeout(()=>{ spUpload(); }, 1500);
 }
-
-spCheckSession();
 
 /* ============ RENDER ALL ============ */
 function renderAll(){
@@ -2103,6 +2029,8 @@ function startApp(){
   populateEntitySelects();
   refreshCategoriaDatalist();
   renderAll();
+  // Local data is already showing — now check in the background whether a Supabase
+  // account is already connected on this browser, and if so sync automatically.
 }
 
 })();
