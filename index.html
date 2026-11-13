@@ -295,6 +295,21 @@
       <div class="modal-actions" style="justify-content:stretch;">
         <button class="btn btn-primary" id="btnAuthLogin" style="width:100%; justify-content:center;">Entrar</button>
       </div>
+      <p style="text-align:center; margin-top:14px;">
+        <a href="#" id="linkForgotPass" style="font-size:11.5px; color:var(--text-faint);">Esqueci minha senha</a>
+      </p>
+    </div>
+
+    <div id="authResetPanel" style="display:none;">
+      <h2 style="font-size:15px;">Definir nova senha</h2>
+      <div class="form-grid">
+        <div class="full"><label>Nova senha (mín. 6 caracteres)</label><input id="authNewPass" type="password" autocomplete="new-password"></div>
+        <div class="full"><label>Confirmar nova senha</label><input id="authNewPass2" type="password" autocomplete="new-password"></div>
+      </div>
+      <p id="authResetMsg" style="color:var(--red); font-size:12.5px; margin-top:8px; display:none;"></p>
+      <div class="modal-actions" style="justify-content:stretch;">
+        <button class="btn btn-primary" id="btnAuthReset" style="width:100%; justify-content:center;">Salvar nova senha</button>
+      </div>
     </div>
   </div>
 </div>
@@ -761,9 +776,10 @@ function getLocalSalt(){
   return salt;
 }
 
-function authShowError(msg){
+function authShowError(msg, ok){
   const el = document.getElementById('authLoginError');
   el.textContent = msg; el.style.display = msg ? 'block' : 'none';
+  el.style.color = ok ? 'var(--green)' : 'var(--red)';
 }
 
 function initAuth(){
@@ -2033,7 +2049,57 @@ function startApp(){
   // account is already connected on this browser, and if so sync automatically.
 }
 
+/* ============ RECUPERAÇÃO DE SENHA ============ */
+function authShowPanel(which){
+  document.getElementById('authLoginPanel').style.display = which==='login' ? 'block' : 'none';
+  document.getElementById('authResetPanel').style.display = which==='reset' ? 'block' : 'none';
+}
+function authResetMsg(msg, ok){
+  const el = document.getElementById('authResetMsg');
+  el.textContent = msg; el.style.display = msg ? 'block' : 'none';
+  el.style.color = ok ? 'var(--green)' : 'var(--red)';
+}
+document.getElementById('linkForgotPass').addEventListener('click', async (e)=>{
+  e.preventDefault();
+  const email = document.getElementById('authEmail').value.trim();
+  if(!email){ authShowError('Digite seu e-mail acima e clique em "Esqueci minha senha" de novo.'); return; }
+  const client = spInitClient();
+  if(!client){ authShowError('Não foi possível carregar o Supabase. Verifique a conexão.'); return; }
+  const {error} = await client.auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname});
+  if(error) authShowError('Não foi possível enviar o e-mail: ' + error.message);
+  else authShowError('Enviamos um link de redefinição para ' + email + '. Abra o e-mail e clique no link (use-o logo, ele expira).', true);
+});
+document.getElementById('btnAuthReset').addEventListener('click', async ()=>{
+  const p1 = document.getElementById('authNewPass').value;
+  const p2 = document.getElementById('authNewPass2').value;
+  authResetMsg('');
+  if(p1.length < 6){ authResetMsg('A senha precisa ter pelo menos 6 caracteres.'); return; }
+  if(p1 !== p2){ authResetMsg('As senhas não coincidem.'); return; }
+  const client = spInitClient();
+  const {error} = await client.auth.updateUser({password: p1});
+  if(error){ authResetMsg('Não foi possível salvar: ' + error.message); return; }
+  try{ await client.auth.signOut(); }catch(e){}
+  spSession = null;
+  history.replaceState(null, '', location.pathname);
+  document.getElementById('authNewPass').value = ''; document.getElementById('authNewPass2').value = '';
+  authShowPanel('login');
+  authShowError('Senha alterada. Entre com a nova senha.', true);
+});
+function authInitRecovery(){
+  if(/error_code=otp_expired|error=access_denied/.test(location.hash)){
+    authShowError('O link do e-mail expirou ou já foi usado. Clique em "Esqueci minha senha" para receber outro.');
+    history.replaceState(null, '', location.pathname);
+  }
+  if(typeof supabase === 'undefined') return;
+  const client = spInitClient();
+  if(!client) return;
+  client.auth.onAuthStateChange((ev)=>{ if(ev === 'PASSWORD_RECOVERY') authShowPanel('reset'); });
+  if(/type=recovery/.test(location.hash)) authShowPanel('reset');
+}
+authInitRecovery();
+
 })();
+
 
 </script>
 </body>
