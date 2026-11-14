@@ -728,7 +728,11 @@ let ui = {
 
 /* ============ CRYPTO (Web Crypto API — AES-GCM + PBKDF2) ============ */
 const VERIFIER_TEXT = 'spd-unlock-ok';
-function bufToB64(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+function bufToB64(buf){
+  const bytes = new Uint8Array(buf); let bin = '';
+  for(let i=0;i<bytes.length;i+=0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+0x8000));
+  return btoa(bin);
+}
 function b64ToBuf(b64){ const bin = atob(b64); const arr = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); return arr.buffer; }
 
 async function deriveKey(password, saltB64){
@@ -821,7 +825,8 @@ async function loginAttempt(){
     spSetStatus('conectado como ' + spSession.user.email + '.');
     startApp();
   }catch(e){
-    authShowError('Erro inesperado ao entrar. Tente novamente.');
+    console.error('login falhou', e);
+    authShowError('Erro inesperado ao entrar: ' + (e && e.message ? e.message : e));
   }finally{
     btn.disabled = false; btn.textContent = 'Entrar';
   }
