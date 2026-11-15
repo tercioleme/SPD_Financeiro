@@ -394,7 +394,7 @@
     <div class="brand">
       <div class="mark">SPD</div>
       <div class="sub">Controle Financeiro</div>
-      <div class="sub" style="font-size:9px; letter-spacing:.04em; text-transform:none; opacity:.8;">versão 15/11 · 01h25</div>
+      <div class="sub" style="font-size:9px; letter-spacing:.04em; text-transform:none; opacity:.8;">versão 15/11 · 01h50</div>
     </div>
     <nav id="mainNav">
       <button data-view="dashboard" class="active"><span class="ic">◆</span> Dashboard</button>
@@ -402,6 +402,7 @@
       <button data-view="calendario"><span class="ic">▦</span> Calendário</button>
       <button data-view="relatorios"><span class="ic">▤</span> Relatórios</button>
       <button data-view="aportes"><span class="ic">↓</span> Aportes</button>
+      <button data-view="caixa"><span class="ic">$</span> Caixa</button>
       <button data-view="whatsapp"><span class="ic">✉</span> WhatsApp</button>
       <button data-view="backup"><span class="ic">⇅</span> Backup</button>
     </nav>
@@ -587,6 +588,41 @@
       <div id="aportesList"></div>
     </section>
 
+    <!-- CAIXA -->
+    <section class="view" id="view-caixa">
+      <div class="topbar">
+        <h1>Fechamento de caixa</h1>
+        <div class="actions">
+          <button class="btn btn-sm" id="cxPrev">← dia anterior</button>
+          <input type="date" id="cxData">
+          <button class="btn btn-sm" id="cxNext">próximo dia →</button>
+          <button class="btn" id="cxHoje">Hoje</button>
+        </div>
+      </div>
+      <div class="cards" id="cxCards"></div>
+      <div class="dash-grid">
+        <div class="panel">
+          <h3>Texto do fechamento (padrão do grupo)</h3>
+          <pre id="cxTexto" style="white-space:pre-wrap; font-family:var(--mono); font-size:12.5px; line-height:1.55; margin-bottom:12px;"></pre>
+          <div class="no-print" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+            <button class="btn btn-primary" id="cxCopiar">Copiar texto</button>
+            <button class="btn" id="cxWhats">Abrir no WhatsApp</button>
+            <button class="btn" id="cxImprimir">Imprimir / PDF</button>
+            <span id="cxMsg" style="font-size:12.5px; color:var(--green);"></span>
+          </div>
+        </div>
+        <div class="panel no-print">
+          <h3>Saldo de referência da conta pagamento</h3>
+          <p style="color:var(--text-dim); font-size:12.5px; margin-bottom:12px;">O saldo de cada dia é calculado a partir de um saldo conhecido: saldo de referência + aportes − pagamentos lançados depois dessa data. A importação do WhatsApp atualiza esse valor com o último “Saldo final” do grupo.</p>
+          <div class="form-grid" style="margin-bottom:12px;">
+            <div><label>Data do saldo</label><input type="date" id="cxAncData"></div>
+            <div><label>Saldo final nesse dia (R$)</label><input type="number" step="0.01" id="cxAncSaldo"></div>
+          </div>
+          <button class="btn" id="cxAncSalvar" style="margin-bottom:12px;">Salvar saldo de referência</button>
+        </div>
+      </div>
+    </section>
+
     <!-- WHATSAPP -->
     <section class="view" id="view-whatsapp">
       <div class="topbar"><h1>Importar do WhatsApp</h1></div>
@@ -598,7 +634,7 @@
           Nada é gravado até você revisar e clicar em <strong>Aplicar</strong>. Lançamentos que já existem (mesma data e valor) vêm desmarcados.
           Depósitos entram como aporte na conta pagamento do grupo (a empresa citada, ex. “via AST”, fica como origem). Pagamentos baixam a conta correspondente da empresa; o valor pago sobrepõe o previsto, exceto funcionários e sócios.
         </p>
-        <input type="file" id="wiFile" accept=".txt,text/plain" style="margin-bottom:10px;">
+        <input type="file" id="wiFile" accept=".txt,.md,text/plain,text/markdown" style="margin-bottom:10px;">
         <textarea id="wiText" rows="5" placeholder="…ou cole aqui o texto do movimento" style="width:100%; margin-bottom:10px;"></textarea>
         <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
           <button class="btn btn-primary" id="wiAnalisar">Analisar</button>
@@ -2187,17 +2223,22 @@ function spScheduleAutoPush(){
 const WI_EXEMPT = /\b(funcion[aá]rio|tercio|t[eé]rcio|alan|cadu|vin[cs]enzo|davi|nicolas|jaine)\b/i;
 const WI_STOP = new Set(['pago','paga','via','guia','pix','parcela','parcelamento','debito','deb','aut','conta','valor','deposito','para','pela','pelo','mensal','complemento','adiantamento','empresa']);
 let wiRows = [];
+let wiParsed = null;
 
 function wiNorm(t){ return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 function wiTokens(t){
   return new Set(wiNorm(t).split(/[^a-z0-9]+/).filter(w=>w.length>=4 && !WI_STOP.has(w) && !/^\d+$/.test(w) && !EMPRESAS.some(e=>e.toLowerCase()===w)));
 }
 function wiMoney(str){
-  const m = String(str).match(/(?:=|\s|\$)\s*(?:R\$)?\s*(\d[\d\.\s]*(?:,\d{1,2})?)\s*$/i);
+  // prefere o valor logo após "=" (pode haver nota depois); senão, o valor no fim da linha
+  let m = String(str).match(/=\s*(-\s*)?(?:R\$)?\s*(\d[\d\.]*(?:\s\d{3})*(?:,\d{1,2})?)/i);
+  if(m){ const n = parseFloat(m[2].replace(/[\s\.]/g,'').replace(',','.')); if(!isNaN(n)) return {valor:n, idx:m.index}; }
+  m = String(str).match(/(?:=|\s|\$)\s*(?:R\$)?\s*(\d[\d\.\s]*(?:,\d{1,2})?)\s*$/i);
   if(!m) return null;
   const n = parseFloat(m[1].replace(/[\s\.]/g,'').replace(',','.'));
   return isNaN(n) ? null : {valor:n, idx: m.index};
 }
+const WI_MESES = {janeiro:1,fevereiro:2,marco:3,abril:4,maio:5,junho:6,julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12};
 function wiISO(d,m,y){ y = String(y).length===2 ? '20'+y : y; return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
 function wiEntity(desc){
   const up = ' ' + desc.toUpperCase().replace(/[^A-Z0-9]+/g,' ') + ' ';
@@ -2209,12 +2250,18 @@ function wiEntity(desc){
 // texto sem prefixo (colado) vira uma única mensagem.
 function wiMessages(text){
   const re = /^[‎‏]*\[?(\d{1,2})\/(\d{1,2})\/(\d{2,4}),?\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]\.?m\.?)?\]?\s*(?:-\s*)?(?:([^:]{1,60}):\s*)?(.*)$/i;
-  const msgs = []; let cur = null;
+  const reDia = /^##\s+(\d{1,2})\s+de\s+([a-zç]+)\s+de\s+(\d{4})/i;      // exportação em .md: "## 29 de abril de 2026"
+  const reMd = /^\[(\d{1,2}):(\d{2})\]\s+\*\*([^*]{1,80}):\*\*\s?(.*)$/;   // "[13:24] **Você:** texto"
+  const msgs = []; let cur = null; let mdDate = null;
   text.split(/\r?\n/).forEach(line=>{
-    const m = line.match(re);
+    let m = line.match(reDia);
+    if(m){ const mes = WI_MESES[wiNorm(m[2])]; if(mes){ mdDate = wiISO(m[1], mes, m[3]); cur = null; } return; }
+    m = mdDate ? line.match(reMd) : null;
+    if(m){ cur = {date: mdDate, lines: [m[4]]}; msgs.push(cur); return; }
+    m = line.match(re);
     if(m){ cur = {date: wiISO(m[1],m[2],m[3]), lines: [m[5]===undefined?'':m[5]]}; msgs.push(cur); }
     else {
-      if(!cur){ cur = {date: todayISO(), lines: []}; msgs.push(cur); }
+      if(!cur){ cur = {date: mdDate || todayISO(), lines: []}; msgs.push(cur); }
       cur.lines.push(line);
     }
   });
@@ -2223,36 +2270,58 @@ function wiMessages(text){
 
 function wiParse(text){
   const msgs = wiMessages(text);
-  const blocks = []; // {date, items[]}
+  const blocks = []; // {date, ledger?, items[]}
   const saldos = [];
-  let curBlock = null;
   msgs.forEach(msg=>{
-    let ledgerDate = msg.date;
-    curBlock = {date: ledgerDate, items: []}; blocks.push(curBlock);
+    let curBlock = {date: msg.date, items: []}; blocks.push(curBlock);
+    let section = null; // dentro de um "Movimento do dia": 'in' | 'out' | 'info'
     msg.lines.forEach(raw=>{
-      const line = raw.trim().replace(/^[-–•*]\s*/,'');
+      if(/^\s*>/.test(raw) && !(curBlock.ledger && section)) return; // citação de outra mensagem
+      const hadBullet = /^\s*(?:[-–•*>]|\d+[.)])\s+/.test(raw);
+      const line = raw.trim().replace(/^(?:[-–•*>]|\d+[.)])\s+/,'').replace(/^(?:\[(?:Imagem|Documento|V[ií]deo|Figurinha|[AÁ]udio)\]\s*)+/i,'').replace(/^[*_]+|[*_]+$/g,'').trim();
       if(!line) return;
       let m = line.match(/^movimento.*?(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
       if(m){
-        ledgerDate = wiISO(m[1],m[2],m[3]);
-        // relatório do mesmo dia reenviado: o mais recente substitui o anterior
-        for(let i=blocks.length-1;i>=0;i--){ if(blocks[i].ledger===ledgerDate){ blocks[i].items = []; blocks[i].replaced = true; } }
+        const ledgerDate = wiISO(m[1],m[2],m[3]);
+        // fechamento do mesmo dia reenviado (retificado): o mais recente substitui o anterior
+        blocks.forEach(bk=>{ if(bk.ledger===ledgerDate){ bk.items = []; bk.ledger = null; } });
+        for(let i=saldos.length-1;i>=0;i--){ if(saldos[i].data===ledgerDate) saldos.splice(i,1); }
         curBlock = {date: ledgerDate, ledger: ledgerDate, items: []}; blocks.push(curBlock);
+        section = null;
         return;
       }
-      m = line.match(/^saldo.*?(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
-      if(m){ const mv = wiMoney(line); if(mv) saldos.push({data: curBlock.ledger || wiISO(m[1],m[2],m[3]), saldo: mv.valor}); return; }
-      const isOut = /^(pago|paga|pagamento)\b/i.test(line);
-      const isIn = /^(dep[oó]sito|recebido|recebimento|cr[eé]dito)\b/i.test(line);
+      if(/^entradas\b/i.test(line)){ section = 'in'; return; }
+      if(/^sa[ií]das\b/i.test(line)){ section = 'out'; return; }
+      if(/^(lan[cç]amentos informativos|valores liquidados)/i.test(line)){ section = 'info'; return; }
+      if(/^saldo anterior/i.test(line) || /^\(?saldo dispon/i.test(line) || /^total\b/i.test(line) || /^c[aá]lculo/i.test(line)) return;
+      m = line.match(/^saldo\s+(?:final|conta)[^:]*?(\d{1,2})\/(\d{1,2})\/(\d{4})\)?[^:]*:\s*(-)?\s*R\$\s*([\d\.]+(?:,\d{1,2})?)/i);
+      if(m){
+        const v = parseFloat(m[5].replace(/\./g,'').replace(',','.')) * (m[4] ? -1 : 1);
+        saldos.push({data: curBlock.ledger || wiISO(m[1],m[2],m[3]), saldo: v});
+        return;
+      }
+      if(/n[aã]o deduzi|somente para constar/i.test(line)) return; // pago por cartão etc.: não mexe na conta
+      let isOut = /^(pago|paga|pagamento)\b/i.test(line);
+      let isIn = /^(dep[oó]sito|recebido|recebimento|cr[eé]dito)\b/i.test(line);
+      if(curBlock.ledger && section){
+        if(section==='info') return;
+        if(!hadBullet && !isOut && !isIn && !/=\s*-?\s*R?\$?\s*\d/.test(line)) return;
+        if(section==='in'){ isIn = true; isOut = false; } else { isOut = true; isIn = false; }
+      }
       if(!isOut && !isIn) return;
       const mv = wiMoney(line);
       if(!mv || mv.valor<=0) return;
       let desc = line.slice(0, mv.idx).replace(/[=\s]+$/,'').replace(/^(pago|paga|pagamento|dep[oó]sito|recebido|recebimento|cr[eé]dito)\s+(via\s+)?/i,'').trim();
+      if(!desc) desc = isIn ? 'Depósito' : 'Pagamento';
       curBlock.items.push({tipo: isOut?'saida':'entrada', data: curBlock.date, desc, valor: mv.valor, raw: line});
     });
   });
-  const items = []; blocks.forEach(b=>b.items.forEach(i=>items.push(i)));
-  return {items, saldos};
+  // dias que têm fechamento ("Movimento do dia"): o fechamento é a fonte; comprovantes avulsos do mesmo dia são descartados
+  const fechados = new Set(blocks.filter(bk=>bk.ledger && bk.items.length).map(bk=>bk.ledger));
+  const items = [];
+  blocks.forEach(bk=>{ if(bk.ledger || !fechados.has(bk.date)) bk.items.forEach(i=>items.push(i)); });
+  items.sort((x,y)=>x.data.localeCompare(y.data));
+  return {items, saldos, fechados: fechados.size};
 }
 
 function wiFingerprint(it){ return `${it.data}|${it.valor.toFixed(2)}|${wiNorm(it.desc).replace(/[^a-z0-9]/g,'')}`; }
@@ -2338,7 +2407,7 @@ function wiRender(parsed){
       <td><select class="wiAcao">${acoes}</select></td></tr>`;
   }).join('');
   box.innerHTML = `
-    <p style="font-size:13px; margin-bottom:10px;"><strong>${wiRows.length}</strong> lançamento(s) reconhecido(s) — <strong>${novos}</strong> novo(s), ${wiRows.length-novos} já lançado(s).</p>
+    <p style="font-size:13px; margin-bottom:10px;"><strong>${wiRows.length}</strong> lançamento(s) reconhecido(s) — <strong>${novos}</strong> novo(s), ${wiRows.length-novos} já lançado(s).${parsed.fechados?` Lidos ${parsed.fechados} fechamento(s) diário(s).`:''}</p>
     ${checks.length ? `<div style="font-size:12.5px; color:var(--amber); margin-bottom:10px;">⚠ Conferência com os saldos informados no texto:<br>${checks.map(escapeHtml).join('<br>')}</div>` : (parsed.saldos.length>1?'<p style="font-size:12.5px; color:var(--green); margin-bottom:10px;">✓ Os saldos informados no texto fecham com os lançamentos.</p>':'')}
     <div style="overflow-x:auto;"><table class="compact-table" style="min-width:900px;"><thead><tr><th><input type="checkbox" id="wiAll" checked title="Marcar/desmarcar todos"></th><th>Data</th><th>Tipo</th><th>Descrição</th><th style="text-align:right;">Valor</th><th>Empresa</th><th>Ação</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div style="margin:14px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
@@ -2394,10 +2463,17 @@ function wiApply(){
     }
     state.waImportados.push(wiFingerprint(it));
   });
+  let ancMsg = '';
+  if(wiParsed && wiParsed.saldos.length){
+    state.caixaSaldos = state.caixaSaldos || {};
+    wiParsed.saldos.forEach(sd=>{ state.caixaSaldos[sd.data] = sd.saldo; });
+    const ult = wiParsed.saldos.slice().sort((x,y)=>x.data.localeCompare(y.data)).pop();
+    if(!state.caixa || !state.caixa.data || ult.data >= state.caixa.data){ state.caixa = {data: ult.data, saldo: ult.saldo}; ancMsg = ` Saldo de referência do caixa: ${fmtBRL(ult.saldo)} em ${fmtDate(ult.data)}.`; }
+  }
   saveState();
   refreshCategoriaDatalist();
   renderAll();
-  document.getElementById('wiMsg').textContent = `Aplicado: ${baixas} baixa(s), ${novos} novo(s) lançamento(s), ${aportes} crédito(s); ${ign} ignorado(s). Sincronizando com o Supabase…`;
+  document.getElementById('wiMsg').textContent = ancMsg + ` Aplicado: ${baixas} baixa(s), ${novos} novo(s) lançamento(s), ${aportes} crédito(s); ${ign} ignorado(s). Sincronizando com o Supabase…`;
   document.getElementById('wiApply').disabled = true;
 }
 
@@ -2411,11 +2487,114 @@ document.getElementById('wiAnalisar').addEventListener('click', ()=>{
   const text = document.getElementById('wiText').value;
   if(!text.trim()){ alert('Envie o arquivo .txt exportado ou cole o texto do movimento.'); return; }
   const parsed = wiParse(text);
+  wiParsed = parsed;
   const desde = document.getElementById('wiDesde').value;
   if(desde){ parsed.items = parsed.items.filter(i=>i.data>=desde); }
   wiRows = wiAnalyze(parsed);
   wiRender(parsed);
 });
+
+
+/* ============ FECHAMENTO DE CAIXA (conta pagamento do grupo) ============ */
+function cxMovDia(){
+  // soma por dia de tudo que passou pela conta pagamento: aportes (+) e pagamentos (−), sem filtro de empresa
+  const mov = {};
+  state.aportes.forEach(a=>{ if(a.data){ (mov[a.data] = mov[a.data] || {in:[], out:[]}).in.push(a); } });
+  state.contas.forEach(c=>(c.pagamentos||[]).forEach(p=>{ if(p.data){ (mov[p.data] = mov[p.data] || {in:[], out:[]}).out.push({conta:c, pagamento:p}); } }));
+  return mov;
+}
+function cxNet(m){ return m.in.reduce((s,a)=>s+Number(a.valor||0),0) - m.out.reduce((s,o)=>s+Number(o.pagamento.valor||0),0); }
+function cxAncoras(){
+  // saldos conhecidos por dia: os "Saldo final" importados do grupo + o saldo de referência manual
+  const m = Object.assign({}, state.caixaSaldos || {});
+  if(state.caixa && state.caixa.data) m[state.caixa.data] = Number(state.caixa.saldo||0);
+  return m;
+}
+function cxCalc(fromDate, fromSaldo, iso, mov){
+  let saldo = fromSaldo;
+  Object.keys(mov).forEach(d=>{
+    if(d > fromDate && d <= iso) saldo += cxNet(mov[d]);
+    else if(d <= fromDate && d > iso) saldo -= cxNet(mov[d]);
+  });
+  return saldo;
+}
+function cxSaldoInfo(iso, mov){
+  const anc = cxAncoras();
+  const datas = Object.keys(anc).sort();
+  if(!datas.length) return {saldo:null};
+  const antes = datas.filter(d=>d<iso);
+  const informado = Object.prototype.hasOwnProperty.call(anc, iso) ? anc[iso] : null;
+  let calculado = null;
+  if(antes.length){ const d0 = antes[antes.length-1]; calculado = cxCalc(d0, anc[d0], iso, mov); }
+  else if(informado===null){ const d0 = datas[0]; calculado = cxCalc(d0, anc[d0], iso, mov); }
+  if(informado!==null) return {saldo: informado, informado:true, dif: calculado===null ? 0 : informado - calculado};
+  return {saldo: calculado, informado:false, dif:0};
+}
+function cxSaldoFinal(iso, mov){ return cxSaldoInfo(iso, mov).saldo; }
+function cxBRL(v){ return (v<0?'- ':'') + 'R$ ' + Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+function cxTextoDia(iso){
+  const mov = cxMovDia();
+  const dia = mov[iso] || {in:[], out:[]};
+  const anteriores = Object.keys(mov).filter(d=>d<iso).sort();
+  const prev = anteriores.length ? anteriores[anteriores.length-1] : isoLocal(new Date(parseDate(iso).getTime()-86400000));
+  const saldoFinal = cxSaldoFinal(iso, mov);
+  const totIn = dia.in.reduce((s,a)=>s+Number(a.valor||0),0);
+  const totOut = dia.out.reduce((s,o)=>s+Number(o.pagamento.valor||0),0);
+  const saldoPrev = cxSaldoFinal(prev, mov);
+  const saldoAnt = saldoPrev!==null ? saldoPrev : (saldoFinal===null ? null : saldoFinal - totIn + totOut);
+  const L = [];
+  L.push(`Movimento do dia ${fmtDate(iso)} (Conta Tércio)`);
+  L.push(`Saldo Anterior (Final de ${fmtDate(prev).slice(0,5)}): ${saldoAnt===null?'(defina o saldo de referência)':cxBRL(saldoAnt)}`);
+  L.push('', 'Entradas (+)', '');
+  if(dia.in.length){
+    dia.in.forEach(a=>{ const o = (a.origem||'').trim(); L.push(`* ${/^dep[oó]sito/i.test(o)?o:'Depósito via '+(o||'não informado')} = ${cxBRL(Number(a.valor))}`, ''); });
+    L.push(`Total de Entradas: ${cxBRL(totIn)}`);
+    if(saldoAnt!==null) L.push('', `(Saldo disponível para os pagamentos do dia: ${cxBRL(saldoAnt+totIn)})`);
+  } else L.push('Nenhuma entrada registrada no período.');
+  L.push('', 'Saídas / Pagamentos (-)', '');
+  if(dia.out.length){
+    dia.out.forEach(o=>{ L.push(`* ${o.conta.titulo} = ${cxBRL(Number(o.pagamento.valor))}`, ''); });
+    L.push(`Total de Saídas: ${cxBRL(totOut)}`);
+  } else L.push('Nenhuma saída registrada no período.');
+  L.push('', `Saldo final da conta Tercio no dia ${fmtDate(iso)}: ${saldoFinal===null?'(defina o saldo de referência)':cxBRL(saldoFinal)}`);
+  const info = cxSaldoInfo(iso, mov);
+  return {texto: L.join('\n'), info, totIn, totOut, saldoAnt, saldoFinal, nIn: dia.in.length, nOut: dia.out.length};
+}
+function renderCaixa(){
+  const inp = document.getElementById('cxData');
+  if(!inp.value) inp.value = todayISO();
+  const r = cxTextoDia(inp.value);
+  document.getElementById('cxTexto').textContent = r.texto;
+  document.getElementById('cxCards').innerHTML = [
+    {label:'Saldo anterior', value: r.saldoAnt===null?'—':cxBRL(r.saldoAnt), sub:'antes do movimento do dia', cls:'info'},
+    {label:'Entradas', value: cxBRL(r.totIn), sub:`${r.nIn} aporte(s)`, cls:'ok'},
+    {label:'Saídas', value: cxBRL(r.totOut), sub:`${r.nOut} pagamento(s)`, cls:'bad'},
+    {label:'Saldo final do dia', value: r.saldoFinal===null?'—':cxBRL(r.saldoFinal), sub: r.saldoFinal===null ? 'defina o saldo de referência' : (r.info.informado ? (Math.abs(r.info.dif)>0.01 ? `⚠ informado no grupo; lançamentos diferem em ${cxBRL(r.info.dif)}` : 'confere com o saldo informado no grupo') : 'calculado a partir do último saldo conhecido'), cls: r.saldoFinal!==null && (r.saldoFinal<0 || Math.abs(r.info.dif)>0.01) ? 'bad':'warn'},
+  ].map(c=>`<div class="card ${c.cls}"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="sub">${c.sub}</div></div>`).join('');
+  if(document.activeElement.id!=='cxAncData' && document.activeElement.id!=='cxAncSaldo'){
+    document.getElementById('cxAncData').value = state.caixa && state.caixa.data || '';
+    document.getElementById('cxAncSaldo').value = state.caixa && state.caixa.data ? Number(state.caixa.saldo).toFixed(2) : '';
+  }
+  document.getElementById('cxMsg').textContent = '';
+}
+function cxShift(n){ const inp = document.getElementById('cxData'); const d = parseDate(inp.value || todayISO()); d.setDate(d.getDate()+n); inp.value = isoLocal(d); renderCaixa(); }
+document.getElementById('cxData').addEventListener('change', renderCaixa);
+document.getElementById('cxPrev').addEventListener('click', ()=>cxShift(-1));
+document.getElementById('cxNext').addEventListener('click', ()=>cxShift(1));
+document.getElementById('cxHoje').addEventListener('click', ()=>{ document.getElementById('cxData').value = todayISO(); renderCaixa(); });
+document.getElementById('cxAncSalvar').addEventListener('click', ()=>{
+  const d = document.getElementById('cxAncData').value; const v = parseFloat(document.getElementById('cxAncSaldo').value);
+  if(!d || isNaN(v)){ alert('Informe a data e o saldo final desse dia.'); return; }
+  state.caixa = {data:d, saldo:v}; state.caixaSaldos = state.caixaSaldos || {}; state.caixaSaldos[d] = v; saveState(); renderCaixa();
+});
+document.getElementById('cxCopiar').addEventListener('click', async ()=>{
+  const t = document.getElementById('cxTexto').textContent;
+  try{ await navigator.clipboard.writeText(t); }
+  catch(e){ const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(_){} ta.remove(); }
+  document.getElementById('cxMsg').textContent = 'Copiado. Cole no grupo do WhatsApp.';
+});
+document.getElementById('cxWhats').addEventListener('click', ()=>{ window.open('https://wa.me/?text=' + encodeURIComponent(document.getElementById('cxTexto').textContent), '_blank'); });
+document.getElementById('cxImprimir').addEventListener('click', ()=>{ delete document.body.dataset.printScope; window.print(); });
 
 /* ============ RENDER ALL ============ */
 function renderAll(){
@@ -2424,6 +2603,7 @@ function renderAll(){
   else if(ui.view==='calendario') renderCalendar();
   else if(ui.view==='relatorios'){ renderReports(); renderPendencias(); renderExtratoDiario(); }
   else if(ui.view==='aportes') renderAportes();
+  else if(ui.view==='caixa') renderCaixa();
 }
 
 /* ============ INIT ============ */
