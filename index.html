@@ -525,6 +525,23 @@
       </div>
 
       <div class="panel" style="margin-top:16px;">
+        <h3>Importar do WhatsApp</h3>
+        <p style="color:var(--text-dim); font-size:13px; margin-bottom:14px;">
+          Lê o relatório de movimento do grupo (ex.: “Movimento da conta Tércio no dia 02/09/2026”, “Pago via … = R$ …”, “Depósito via AST …”).
+          No WhatsApp: abra o grupo → ⋮ → Mais → Exportar conversa → <strong>Sem mídia</strong> e envie o .txt aqui (ou cole o texto).
+          Nada é gravado até você revisar e clicar em <strong>Aplicar</strong>. Lançamentos que já existem (mesma data e valor) vêm desmarcados.
+          Pagamentos baixam a conta correspondente; o valor pago sobrepõe o previsto, exceto funcionários e sócios.
+        </p>
+        <input type="file" id="wiFile" accept=".txt,text/plain" style="margin-bottom:10px;">
+        <textarea id="wiText" rows="5" placeholder="…ou cole aqui o texto do movimento" style="width:100%; margin-bottom:10px;"></textarea>
+        <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-primary" id="wiAnalisar">Analisar</button>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim);">Só a partir de <input type="date" id="wiDesde" style="width:auto;"></label>
+        </div>
+        <div id="wiResult"></div>
+      </div>
+
+      <div class="panel" style="margin-top:16px;">
         <h3>Sincronização com Supabase</h3>
         <p style="color:var(--text-dim); font-size:13px; margin-bottom:14px;">
           Guarda os dados num banco de dados na nuvem. Assim que você entra com sua conta, o app <strong>puxa sozinho</strong> os dados mais
@@ -2049,6 +2066,240 @@ function spScheduleAutoPush(){
   clearTimeout(spPushTimer);
   spPushTimer = setTimeout(()=>{ spUpload(); }, 1500);
 }
+
+
+/* ============ IMPORTAR DO WHATSAPP ============ */
+const WI_EXEMPT = /\b(funcion[aá]rio|tercio|t[eé]rcio|alan|cadu|vin[cs]enzo|davi|nicolas|jaine)\b/i;
+const WI_STOP = new Set(['pago','paga','via','guia','pix','parcela','parcelamento','debito','deb','aut','conta','valor','deposito','para','pela','pelo','mensal','complemento','adiantamento','empresa']);
+let wiRows = [];
+
+function wiNorm(t){ return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
+function wiTokens(t){
+  return new Set(wiNorm(t).split(/[^a-z0-9]+/).filter(w=>w.length>=4 && !WI_STOP.has(w) && !/^\d+$/.test(w) && !EMPRESAS.some(e=>e.toLowerCase()===w)));
+}
+function wiMoney(str){
+  const m = String(str).match(/(?:=|\s|\$)\s*(?:R\$)?\s*(\d[\d\.\s]*(?:,\d{1,2})?)\s*$/i);
+  if(!m) return null;
+  const n = parseFloat(m[1].replace(/[\s\.]/g,'').replace(',','.'));
+  return isNaN(n) ? null : {valor:n, idx: m.index};
+}
+function wiISO(d,m,y){ y = String(y).length===2 ? '20'+y : y; return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function wiEntity(desc){
+  const up = ' ' + desc.toUpperCase().replace(/[^A-Z0-9]+/g,' ') + ' ';
+  for(const e of EMPRESAS){ if(up.includes(' '+e+' ')) return e; }
+  return '';
+}
+
+// Quebra o texto em mensagens (formatos Android "dd/mm/aaaa hh:mm - Nome: msg" e iOS "[dd/mm/aaaa hh:mm:ss] Nome: msg");
+// texto sem prefixo (colado) vira uma única mensagem.
+function wiMessages(text){
+  const re = /^[‎‏]*\[?(\d{1,2})\/(\d{1,2})\/(\d{2,4}),?\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]\.?m\.?)?\]?\s*(?:-\s*)?(?:([^:]{1,60}):\s*)?(.*)$/i;
+  const msgs = []; let cur = null;
+  text.split(/\r?\n/).forEach(line=>{
+    const m = line.match(re);
+    if(m){ cur = {date: wiISO(m[1],m[2],m[3]), lines: [m[5]===undefined?'':m[5]]}; msgs.push(cur); }
+    else {
+      if(!cur){ cur = {date: todayISO(), lines: []}; msgs.push(cur); }
+      cur.lines.push(line);
+    }
+  });
+  return msgs;
+}
+
+function wiParse(text){
+  const msgs = wiMessages(text);
+  const blocks = []; // {date, items[]}
+  const saldos = [];
+  let curBlock = null;
+  msgs.forEach(msg=>{
+    let ledgerDate = msg.date;
+    curBlock = {date: ledgerDate, items: []}; blocks.push(curBlock);
+    msg.lines.forEach(raw=>{
+      const line = raw.trim().replace(/^[-–•*]\s*/,'');
+      if(!line) return;
+      let m = line.match(/^movimento.*?(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
+      if(m){
+        ledgerDate = wiISO(m[1],m[2],m[3]);
+        // relatório do mesmo dia reenviado: o mais recente substitui o anterior
+        for(let i=blocks.length-1;i>=0;i--){ if(blocks[i].ledger===ledgerDate){ blocks[i].items = []; blocks[i].replaced = true; } }
+        curBlock = {date: ledgerDate, ledger: ledgerDate, items: []}; blocks.push(curBlock);
+        return;
+      }
+      m = line.match(/^saldo.*?(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
+      if(m){ const mv = wiMoney(line); if(mv) saldos.push({data: curBlock.ledger || wiISO(m[1],m[2],m[3]), saldo: mv.valor}); return; }
+      const isOut = /^(pago|paga|pagamento)\b/i.test(line);
+      const isIn = /^(dep[oó]sito|recebido|recebimento|cr[eé]dito)\b/i.test(line);
+      if(!isOut && !isIn) return;
+      const mv = wiMoney(line);
+      if(!mv || mv.valor<=0) return;
+      let desc = line.slice(0, mv.idx).replace(/[=\s]+$/,'').replace(/^(pago|paga|pagamento|dep[oó]sito|recebido|recebimento|cr[eé]dito)\s+(via\s+)?/i,'').trim();
+      curBlock.items.push({tipo: isOut?'saida':'entrada', data: curBlock.date, desc, valor: mv.valor, raw: line});
+    });
+  });
+  const items = []; blocks.forEach(b=>b.items.forEach(i=>items.push(i)));
+  return {items, saldos};
+}
+
+function wiFingerprint(it){ return `${it.data}|${it.valor.toFixed(2)}|${wiNorm(it.desc).replace(/[^a-z0-9]/g,'')}`; }
+
+function wiAnalyze(parsed){
+  state.waImportados = state.waImportados || [];
+  const done = new Set(state.waImportados);
+  const pagas = [];
+  state.contas.forEach(c=>(c.pagamentos||[]).forEach(p=>pagas.push({d:p.data, v:Number(p.valor)})));
+  const abertas = state.contas.filter(c=>c.status!=='pago' && c.status!=='cancelado').map(c=>({c, tok: wiTokens(`${c.titulo} ${c.fornecedor||''} ${c.descricao||''}`)}));
+  const seenNew = new Set();
+  return parsed.items.map((it,idx)=>{
+    const ent = wiEntity(it.desc);
+    const row = {idx, it, empresa: ent, dup:false, acao:'', cands:[]};
+    const fp = wiFingerprint(it);
+    if(it.tipo==='saida'){
+      row.dup = done.has(fp) || pagas.some(p=>p.d===it.data && Math.abs(p.v-it.valor)<0.005) || seenNew.has(fp);
+      const toks = wiTokens(it.desc);
+      const dt = parseDate(it.data);
+      const cands = [];
+      abertas.forEach(({c,tok})=>{
+        let common = 0; toks.forEach(t=>{ if(tok.has(t)) common++; });
+        const saldo = saldoDevido(c) || Number(c.valor||0);
+        const rel = Math.abs(saldo - it.valor) / Math.max(it.valor, 1);
+        const valorExato = Math.abs(saldo - it.valor) <= 0.5;
+        const entOk = !ent || c.empresa===ent;
+        if(!entOk) return;
+        if(!(common>=1 && (valorExato || rel<=0.35)) && !(valorExato && common>=1)) return;
+        const dias = c.vencimento ? Math.abs(daysBetween(parseDate(c.vencimento), dt)) : 999;
+        const score = common*10 + (valorExato?25:0) - Math.min(dias/30, 12);
+        cands.push({c, score, valorExato});
+      });
+      cands.sort((a,b)=>b.score-a.score);
+      row.cands = cands.slice(0,5);
+      if(row.dup) row.acao = 'ignorar';
+      else if(row.cands.length && (row.cands[0].valorExato || row.cands[0].score>=18)) row.acao = 'baixar:'+row.cands[0].c.id;
+      else row.acao = 'novo';
+      if(!row.dup) seenNew.add(fp);
+    } else {
+      row.dup = done.has(fp) || state.aportes.some(a=>a.data===it.data && Math.abs(Number(a.valor)-it.valor)<0.005) || seenNew.has(fp);
+      row.acao = row.dup ? 'ignorar' : 'aporte';
+      if(!row.dup) seenNew.add(fp);
+    }
+    return row;
+  });
+}
+
+function wiSaldoChecks(parsed){
+  // confere: variação entre dois saldos informados = entradas − saídas lançadas entre eles
+  const out = [];
+  const byDay = {};
+  parsed.items.forEach(i=>{ byDay[i.data] = (byDay[i.data]||0) + (i.tipo==='entrada'?i.valor:-i.valor); });
+  const sorted = parsed.saldos.slice().sort((a,b)=>a.data.localeCompare(b.data));
+  const uniq = []; sorted.forEach(s=>{ const l=uniq[uniq.length-1]; if(l && l.data===s.data) uniq[uniq.length-1]=s; else uniq.push(s); });
+  for(let i=1;i<uniq.length;i++){
+    const a=uniq[i-1], b=uniq[i];
+    let soma = 0; Object.keys(byDay).forEach(d=>{ if(d>a.data && d<=b.data) soma += byDay[d]; });
+    const dif = (b.saldo - a.saldo) - soma;
+    if(Math.abs(dif) > 0.01) out.push(`${fmtDate(a.data)} → ${fmtDate(b.data)}: faltam/sobram ${fmtBRL(dif)} em relação aos saldos informados`);
+  }
+  return out;
+}
+
+function wiRender(parsed){
+  const box = document.getElementById('wiResult');
+  if(!wiRows.length){ box.innerHTML = '<p style="color:var(--text-dim); font-size:13px;">Nenhum lançamento reconhecido. O texto precisa ter linhas como “Pago via Pix Fulano = R$ 100,00” ou “Depósito via AST = R$ 500,00”.</p>'; return; }
+  const novos = wiRows.filter(r=>!r.dup).length;
+  const checks = wiSaldoChecks(parsed);
+  const opt = (v,l,sel)=>`<option value="${escapeHtml(v)}" ${sel?'selected':''}>${escapeHtml(l)}</option>`;
+  const rows = wiRows.map(r=>{
+    const acoes = r.it.tipo==='saida'
+      ? r.cands.map(k=>opt('baixar:'+k.c.id, `Baixar: ${k.c.titulo.slice(0,48)} · venc ${fmtDate(k.c.vencimento)} · ${fmtBRL(saldoDevido(k.c)||k.c.valor)}`, r.acao==='baixar:'+k.c.id)).join('') + opt('novo','Criar lançamento já pago', r.acao==='novo') + opt('ignorar','Ignorar', r.acao==='ignorar')
+      : opt('aporte','Registrar crédito (aporte)', r.acao==='aporte') + opt('ignorar','Ignorar', r.acao==='ignorar');
+    const emp = '<option value="">—</option>' + EMPRESAS.map(e=>opt(e,e,r.empresa===e)).join('');
+    return `<tr data-i="${r.idx}">
+      <td><input type="checkbox" class="wiChk" ${r.dup?'':'checked'}></td>
+      <td style="white-space:nowrap;">${fmtDate(r.it.data)}</td>
+      <td>${r.it.tipo==='entrada'?'<span style="color:var(--green)">Crédito</span>':'Pago'}</td>
+      <td>${escapeHtml(r.it.desc)}${r.dup?' <em style="color:var(--text-faint)">(já lançado)</em>':''}</td>
+      <td style="text-align:right; white-space:nowrap;">${fmtBRL(r.it.valor)}</td>
+      <td><select class="wiEmp">${emp}</select></td>
+      <td><select class="wiAcao">${acoes}</select></td></tr>`;
+  }).join('');
+  box.innerHTML = `
+    <p style="font-size:13px; margin-bottom:10px;"><strong>${wiRows.length}</strong> lançamento(s) reconhecido(s) — <strong>${novos}</strong> novo(s), ${wiRows.length-novos} já lançado(s).</p>
+    ${checks.length ? `<div style="font-size:12.5px; color:var(--amber); margin-bottom:10px;">⚠ Conferência com os saldos informados no texto:<br>${checks.map(escapeHtml).join('<br>')}</div>` : (parsed.saldos.length>1?'<p style="font-size:12.5px; color:var(--green); margin-bottom:10px;">✓ Os saldos informados no texto fecham com os lançamentos.</p>':'')}
+    <div style="overflow-x:auto;"><table class="compact-table" style="min-width:900px;"><thead><tr><th><input type="checkbox" id="wiAll" checked title="Marcar/desmarcar todos"></th><th>Data</th><th>Tipo</th><th>Descrição</th><th style="text-align:right;">Valor</th><th>Empresa</th><th>Ação</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="margin:14px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <button class="btn btn-primary" id="wiApply">Aplicar selecionados</button>
+      <span id="wiMsg" style="font-size:12.5px; color:var(--text-dim);"></span>
+    </div>`;
+  document.getElementById('wiApply').addEventListener('click', wiApply);
+  document.getElementById('wiAll').addEventListener('change', e=>{ document.querySelectorAll('.wiChk').forEach(c=>{ c.checked = e.target.checked; }); });
+}
+
+function wiApply(){
+  const trs = [...document.querySelectorAll('#wiResult tbody tr')];
+  let baixas=0, novos=0, aportes=0, ign=0;
+  state.waImportados = state.waImportados || [];
+  trs.forEach(tr=>{
+    if(!tr.querySelector('.wiChk').checked){ ign++; return; }
+    const r = wiRows[Number(tr.dataset.i)];
+    const acao = tr.querySelector('.wiAcao').value;
+    const empresa = tr.querySelector('.wiEmp').value;
+    const it = r.it;
+    const origem = 'Importado do WhatsApp: ' + it.raw;
+    if(acao==='ignorar'){ ign++; return; }
+    if(acao==='aporte'){
+      state.aportes.push({id:uid(), criadoEm:new Date().toISOString(), empresa, valor:it.valor, data:it.data, categoria:'', origem:it.desc, nota:origem});
+      aportes++;
+    } else if(acao==='novo'){
+      state.contas.push({
+        id:uid(), titulo:it.desc, descricao:'', empresa: empresa||'MTC', fornecedor:it.desc, valor:it.valor, moeda:'BRL',
+        categoria:'Importado do WhatsApp', emissao:'', vencimento:it.data, recorrencia:'nenhuma', recorrenciaMeses:null,
+        prioridade:'media', status:'pago', nota:origem, valorPago:it.valor,
+        pagamentos:[{data:it.data, valor:it.valor, tipo:'total', comprovante:origem}], criadoEm:new Date().toISOString()
+      });
+      novos++;
+    } else if(acao.startsWith('baixar:')){
+      const c = findConta(acao.slice(7));
+      if(!c){ ign++; return; }
+      const exempt = WI_EXEMPT.test(`${it.desc} ${c.titulo} ${c.fornecedor||''}`);
+      const jaPago = Number(c.valorPago||0);
+      c.pagamentos = c.pagamentos || [];
+      c.pagamentos.push({data:it.data, valor:it.valor, tipo:'total', comprovante:origem});
+      c.valorPago = jaPago + it.valor;
+      if(exempt){
+        c.status = c.valorPago >= c.valor - 0.001 ? 'pago' : 'parcial';
+      } else {
+        if(Math.abs(c.valorPago - c.valor) > 0.005){
+          c.nota = ((c.nota||'') + ` [Valor previsto R$${Number(c.valor).toFixed(2)} sobreposto pelo valor efetivamente pago R$${c.valorPago.toFixed(2)}, em ${fmtDate(it.data)}, conforme regra do usuário (WhatsApp).]`).trim();
+          c.valor = c.valorPago;
+        }
+        c.status = 'pago';
+      }
+      if(c.status==='pago' && c.recorrencia && c.recorrencia!=='nenhuma') gerarProximaRecorrencia(c);
+      baixas++;
+    }
+    state.waImportados.push(wiFingerprint(it));
+  });
+  saveState();
+  refreshCategoriaDatalist();
+  renderAll();
+  document.getElementById('wiMsg').textContent = `Aplicado: ${baixas} baixa(s), ${novos} novo(s) lançamento(s), ${aportes} crédito(s); ${ign} ignorado(s). Sincronizando com o Supabase…`;
+  document.getElementById('wiApply').disabled = true;
+}
+
+document.getElementById('wiFile').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = ()=>{ document.getElementById('wiText').value = String(rd.result||''); document.getElementById('wiAnalisar').click(); };
+  rd.readAsText(f, 'utf-8');
+});
+document.getElementById('wiAnalisar').addEventListener('click', ()=>{
+  const text = document.getElementById('wiText').value;
+  if(!text.trim()){ alert('Envie o arquivo .txt exportado ou cole o texto do movimento.'); return; }
+  const parsed = wiParse(text);
+  const desde = document.getElementById('wiDesde').value;
+  if(desde){ parsed.items = parsed.items.filter(i=>i.data>=desde); }
+  wiRows = wiAnalyze(parsed);
+  wiRender(parsed);
+});
 
 /* ============ RENDER ALL ============ */
 function renderAll(){
