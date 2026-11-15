@@ -979,16 +979,29 @@ function renderAgingRuler(vencidas){
     el.innerHTML = '<div class="ruler-empty">Nenhuma conta vencida no momento. 🎉</div>';
     return;
   }
-  const sorted = [...vencidas].sort((a,b)=>diasAtraso(b)-diasAtraso(a)).slice(0,14);
-  const maxDays = Math.max(...sorted.map(diasAtraso), 30);
-  let html = '<div class="ruler-track"></div>';
-  sorted.forEach((c)=>{
+  const maxDays = Math.max(...vencidas.map(diasAtraso), 30);
+  const items = vencidas.map(c=>{
     const days = diasAtraso(c);
-    const pos = 3 + Math.min(94, (Math.log(days+1)/Math.log(maxDays+1))*92);
-    const label = days>=365 ? `${(days/365).toFixed(1)}a` : days>=30 ? `${Math.round(days/30)}m` : `${days}d`;
-    html += `<div class="ruler-tick" style="left:${pos}%;" title="${escapeHtml(c.titulo)} · ${escapeHtml(c.empresa)} · vencida há ${days} dia(s)">
+    return {c, days, pos: 3 + Math.min(94, (Math.log(days+1)/Math.log(maxDays+1))*92)};
+  }).sort((a,b)=>a.pos-b.pos);
+  // agrupa marcações próximas (evita textos sobrepostos): uma marca por grupo, com a contagem
+  const groups = [];
+  items.forEach(it=>{
+    const g = groups[groups.length-1];
+    if(g && it.pos - g.last < 7){ g.items.push(it); g.last = it.pos; }
+    else groups.push({items:[it], first:it.pos, last:it.pos});
+  });
+  const fmtDias = d => d>=365 ? `${(d/365).toFixed(1).replace('.',',')}a` : d>=30 ? `${Math.round(d/30)}m` : `${d}d`;
+  let html = '<div class="ruler-track"></div>';
+  groups.forEach(g=>{
+    const pos = (g.first+g.last)/2;
+    const maxD = Math.max(...g.items.map(i=>i.days));
+    const n = g.items.length;
+    const label = fmtDias(maxD) + (n>1 ? ` ×${n}` : '');
+    const tip = n>1 ? `${n} contas vencidas (até ${maxD} dia(s) de atraso)` : `${g.items[0].c.titulo} · ${g.items[0].c.empresa} · vencida há ${maxD} dia(s)`;
+    html += `<div class="ruler-tick" style="left:${pos}%;" title="${escapeHtml(tip)}">
       <div class="dot"></div>
-      <div class="lbl">${label}</div>
+      <div class="lbl">${escapeHtml(label)}</div>
     </div>`;
   });
   el.innerHTML = html;
