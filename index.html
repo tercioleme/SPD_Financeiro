@@ -394,7 +394,7 @@
     <div class="brand">
       <div class="mark">SPD</div>
       <div class="sub">Controle Financeiro</div>
-      <div class="sub" style="font-size:9px; letter-spacing:.04em; text-transform:none; opacity:.8;">versão 15/11 · 01h20</div>
+      <div class="sub" style="font-size:9px; letter-spacing:.04em; text-transform:none; opacity:.8;">versão 15/11 · 01h25</div>
     </div>
     <nav id="mainNav">
       <button data-view="dashboard" class="active"><span class="ic">◆</span> Dashboard</button>
@@ -596,7 +596,7 @@
           Lê o relatório de movimento do grupo (ex.: “Movimento da conta Tércio no dia 02/09/2026”, “Pago via … = R$ …”, “Depósito via AST …”).
           No WhatsApp: abra o grupo → ⋮ → Mais → Exportar conversa → <strong>Sem mídia</strong> e envie o .txt aqui (ou cole o texto).
           Nada é gravado até você revisar e clicar em <strong>Aplicar</strong>. Lançamentos que já existem (mesma data e valor) vêm desmarcados.
-          Pagamentos baixam a conta correspondente; o valor pago sobrepõe o previsto, exceto funcionários e sócios.
+          Depósitos entram como aporte na conta pagamento do grupo (a empresa citada, ex. “via AST”, fica como origem). Pagamentos baixam a conta correspondente da empresa; o valor pago sobrepõe o previsto, exceto funcionários e sócios.
         </p>
         <input type="file" id="wiFile" accept=".txt,text/plain" style="margin-bottom:10px;">
         <textarea id="wiText" rows="5" placeholder="…ou cole aqui o texto do movimento" style="width:100%; margin-bottom:10px;"></textarea>
@@ -2266,7 +2266,8 @@ function wiAnalyze(parsed){
   const seenNew = new Set();
   return parsed.items.map((it,idx)=>{
     const ent = wiEntity(it.desc);
-    const row = {idx, it, empresa: ent, dup:false, acao:'', cands:[]};
+    // crédito entra na conta pagamento do grupo (não pertence a uma empresa); 'via AST' é só a origem
+    const row = {idx, it, empresa: it.tipo==='entrada' ? '' : ent, dup:false, acao:'', cands:[]};
     const fp = wiFingerprint(it);
     if(it.tipo==='saida'){
       row.dup = done.has(fp) || pagas.some(p=>p.d===it.data && Math.abs(p.v-it.valor)<0.005) || seenNew.has(fp);
@@ -2325,8 +2326,8 @@ function wiRender(parsed){
   const rows = wiRows.map(r=>{
     const acoes = r.it.tipo==='saida'
       ? r.cands.map(k=>opt('baixar:'+k.c.id, `Baixar: ${k.c.titulo.slice(0,48)} · venc ${fmtDate(k.c.vencimento)} · ${fmtBRL(saldoDevido(k.c)||k.c.valor)}`, r.acao==='baixar:'+k.c.id)).join('') + opt('novo','Criar lançamento já pago', r.acao==='novo') + opt('ignorar','Ignorar', r.acao==='ignorar')
-      : opt('aporte','Registrar crédito (aporte)', r.acao==='aporte') + opt('ignorar','Ignorar', r.acao==='ignorar');
-    const emp = '<option value="">—</option>' + EMPRESAS.map(e=>opt(e,e,r.empresa===e)).join('');
+      : opt('aporte','Registrar aporte na conta pagamento', r.acao==='aporte') + opt('ignorar','Ignorar', r.acao==='ignorar');
+    const emp = `<option value="">${r.it.tipo==='entrada'?'Conta pagamento (grupo)':'—'}</option>` + EMPRESAS.map(e=>opt(e,e,r.empresa===e)).join('');
     return `<tr data-i="${r.idx}">
       <td><input type="checkbox" class="wiChk" ${r.dup?'':'checked'}></td>
       <td style="white-space:nowrap;">${fmtDate(r.it.data)}</td>
