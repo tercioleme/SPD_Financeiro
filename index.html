@@ -246,15 +246,6 @@
   ::-webkit-scrollbar{width:9px; height:9px;}
   ::-webkit-scrollbar-thumb{background:var(--line); border-radius:6px;}
 
-  @media print{
-    aside, .topbar .actions, .conta-actions, nav, .theme-toggle, .filter-row{display:none !important;}
-    #app{display:block;}
-    body{background:#fff; color:#111;}
-    .card,.panel,.conta-row{border-color:#ccc;}
-    .compact-table{color:#111;}
-    .compact-table thead th, .compact-table tbody td{border-color:#ccc;}
-  }
-
   @media (max-width:900px){
     #app{grid-template-columns:1fr;}
     aside{position:relative; height:auto; flex-direction:row; align-items:center; overflow-x:auto;}
@@ -273,6 +264,76 @@
     .conta-actions{grid-area:actions; justify-content:flex-start;}
     .status-dot{grid-area:dot; align-self:start; margin-top:3px;}
   }
+  /* ---------- Melhorias de layout ---------- */
+  main{min-width:0;}
+  .dash-grid{align-items:start;}
+  .dash-grid > *, .panel, .ruler-wrap{min-width:0;}
+  .barchart{overflow-x:auto;}
+  .more-wrap{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; padding:14px 0 6px;}
+  .cal-day .d-count{font-size:10.5px; color:var(--text-dim);}
+  .cal-day .d-total{font-size:10.5px; color:var(--text-dim);}
+  .cal-day{min-width:0; overflow:hidden;}
+  .print-only{display:none;}
+  @media (max-width:900px){
+    #app{grid-template-columns:minmax(0,1fr);}
+    aside{width:100%; position:sticky; top:0; z-index:30; padding:10px 12px; gap:14px; flex-direction:row; align-items:center; overflow-x:auto; height:auto;}
+    aside .brand{flex:0 0 auto;}
+    aside nav{flex-direction:row; flex:0 0 auto;}
+    aside nav button{white-space:nowrap;}
+    .entity-block{flex:0 0 auto; flex-direction:row; align-items:center; margin-top:0; gap:8px;}
+    .entity-block select{width:auto; max-width:170px;}
+    .theme-toggle{white-space:nowrap;}
+    main{padding:16px 14px 48px;}
+    .topbar{margin-bottom:14px;}
+    .cal-grid{gap:3px;}
+    .cal-day{min-height:58px; padding:4px;}
+    .cal-day .d-total{display:none;}
+    .cal-day .d-num{font-size:11px;}
+    .cal-dots .dot{width:5px; height:5px;}
+    .filter-row{flex-wrap:wrap;}
+    .filter-row > *{max-width:100%;}
+    .search{width:100%;}
+  }
+  @media (max-width:520px){
+    .cards, .cards-3{grid-template-columns:1fr;}
+    .report-summary{grid-template-columns:1fr 1fr;}
+    .report-summary .card .value{font-size:15px; overflow-wrap:anywhere;}
+  }
+  @media print{
+    @page{ size:A4; margin:12mm 10mm 14mm; @bottom-right{content:"Página " counter(page) " de " counter(pages); font-size:9px; color:#666;} }
+    :root,[data-theme="light"]{--ink:#fff; --panel:#fff; --panel-2:#fff; --line:#d3d6de; --text:#111; --text-dim:#333; --text-faint:#555;}
+    html,body{height:auto; background:#fff; color:#111; font-size:11px;}
+    *{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    #app{display:block;}
+    main{padding:0 !important; max-width:none; width:auto;}
+    aside, .topbar .actions, .conta-actions, nav, .theme-toggle, .filter-row, .no-print, .cal-head, .more-wrap, #authGate, .overlay{display:none !important;}
+    .print-only{display:block !important;}
+    .print-head{border-bottom:2px solid #111; padding-bottom:6px; margin-bottom:12px; font-size:11px;}
+    .print-head strong{font-size:14px;}
+    .topbar{margin-bottom:8px;}
+    .topbar h1{font-size:16px;}
+    .panel, .card{box-shadow:none; background:#fff; border:1px solid #ccc;}
+    .card, .barchart, .ruler-wrap{break-inside:avoid;}
+    .panel{break-inside:auto; padding:10px 10px 4px;}
+    .report-summary{grid-template-columns:repeat(4,1fr); gap:8px; margin:10px 0 14px;}
+    .conta-row{break-inside:avoid; padding:5px 8px; background:#fff; border:0; border-bottom:1px solid #ddd; border-radius:0;}
+    .group-title{break-after:avoid; margin:14px 0 6px;}
+    .compact-table{min-width:0 !important; font-size:10.5px; color:#111;}
+    .compact-table thead{display:table-header-group;}
+    .compact-table tr{break-inside:avoid;}
+    .compact-table thead th, .compact-table tbody td{border-color:#ccc; padding:3px 5px; line-height:1.3; font-size:9.5px;}
+    .compact-table{table-layout:fixed;}
+    #pendTable thead th{font-size:8px; letter-spacing:0; white-space:normal; padding:3px 4px;}
+    #pendTable th:nth-child(1){width:70px;} #pendTable th:nth-child(2){width:32%;} #pendTable th:nth-child(3){width:52px;}
+    #pendTable th:nth-child(4){width:80px;} #pendTable th:nth-child(5){width:54px;}
+    #pendTable td.obs{font-size:8.5px; color:#444;}
+    #pendTable td{word-wrap:break-word; overflow-wrap:anywhere;}
+    .print-break{break-before:page; height:0;}
+    .cal-grid{gap:2px;} .cal-day{min-height:70px; break-inside:avoid;}
+    body[data-print-scope="pend"] [data-ps]:not([data-ps="pend"]){display:none !important;}
+    body[data-print-scope="pend"] .print-break{display:none !important;}
+  }
+
 </style>
 </head>
 <body>
@@ -425,7 +486,8 @@
         </div>
       </div>
 
-      <div class="panel" style="margin-bottom:22px;">
+      <div class="print-only print-head"><strong>SPD — Controle Financeiro</strong><br>Relatório gerado em <span id="printStamp"></span> · Empresa: <span id="printEntity"></span></div>
+      <div class="panel" data-ps="pend" style="margin-bottom:22px;">
         <h3>Relatório de pendências (compacto)</h3>
         <div class="filter-row" style="margin-bottom:14px;">
           <label style="font-size:12px; color:var(--text-dim); align-self:center;">Mostrar contas em aberto com vencimento até:</label>
@@ -448,11 +510,13 @@
             <tbody id="pendTableBody"></tbody>
           </table>
         </div>
+        <div id="pendMore"></div>
         <div id="pendEmpty" class="empty-state" style="display:none;">Nenhuma conta em aberto até essa data.</div>
         <div style="margin-top:10px; font-size:12px; color:var(--text-faint);" id="pendFooter"></div>
       </div>
 
-      <div class="panel" style="margin-bottom:22px;">
+      <div class="print-break" data-ps="extrato"></div>
+      <div class="panel" data-ps="extrato" style="margin-bottom:22px;">
         <h3>Extrato do dia (lançamentos) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-faint);font-size:11px;">— contas pagas e aportes registrados na data escolhida</span></h3>
         <div class="filter-row" style="margin-bottom:14px;">
           <input type="date" id="extratoData">
@@ -465,7 +529,8 @@
         <div class="group-title ok"><span>Aportes recebidos no dia</span><div class="line"></div></div>
         <div id="extratoAportesList"></div>
       </div>
-      <div class="filter-row">
+      <div class="print-break" data-ps="lista"></div>
+      <div class="filter-row" data-ps="lista">
         <select id="repPeriodo">
           <option value="30">Próximos 30 dias</option>
           <option value="90">Próximos 90 dias</option>
@@ -483,13 +548,13 @@
           <option value="cancelado">Cancelado</option>
         </select>
       </div>
-      <div class="report-summary" id="repSummary"></div>
-      <div class="panel">
+      <div class="report-summary" id="repSummary" data-ps="lista"></div>
+      <div class="panel" data-ps="lista">
         <h3>Fluxo por categoria no período</h3>
         <div class="barchart" id="repChart"></div>
       </div>
-      <div class="group-title"><span>Contas no período selecionado</span><div class="line"></div></div>
-      <div id="repList"></div>
+      <div class="group-title" data-ps="lista"><span>Contas no período selecionado</span><div class="line"></div></div>
+      <div id="repList" data-ps="lista"></div>
     </section>
 
     <!-- APORTES -->
@@ -741,6 +806,8 @@ let ui = {
   editingContaId: null,
   pagamentoContaId: null,
   diaContas: [],
+  limits: {},
+  printAll: false,
 };
 
 /* ============ CRYPTO (Web Crypto API — AES-GCM + PBKDF2) ============ */
@@ -867,7 +934,8 @@ document.getElementById('btnLockNow').addEventListener('click', async ()=>{
 
 initAuth();
 function uid(){ return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
+function isoLocal(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function todayISO(){ return isoLocal(new Date()); }
 function fmtBRL(v){ return (Number(v)||0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'}); }
 function fmtDate(iso){ if(!iso) return '—'; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
 function parseDate(iso){ const [y,m,d]=iso.split('-').map(Number); return new Date(y, m-1, d); }
@@ -1117,10 +1185,25 @@ function renderContas(){
   attachContaRowHandlers();
 }
 
+const PAGE_STEP = 60;
+function limitFor(key){ return ui.printAll ? Infinity : (ui.limits[key] || PAGE_STEP); }
+function moreBtnHtml(key, total, shown){
+  if(shown >= total) return '';
+  return `<div class="more-wrap"><button class="btn btn-sm more-btn" data-key="${escapeHtml(key)}">Mostrar mais ${Math.min(PAGE_STEP, total-shown)} (restam ${total-shown})</button><button class="btn btn-sm more-all" data-key="${escapeHtml(key)}">Mostrar todas</button></div>`;
+}
+document.addEventListener('click', e=>{
+  const b = e.target.closest && e.target.closest('.more-btn, .more-all');
+  if(!b) return;
+  const k = b.dataset.key;
+  ui.limits[k] = b.classList.contains('more-all') ? Infinity : (ui.limits[k] || PAGE_STEP) + PAGE_STEP;
+  renderAll();
+});
 function renderContaGroup(title, list, cls){
   if(!list.length) return '';
+  const key = 'g:' + title;
+  const shown = list.slice(0, limitFor(key));
   return `<div class="group-title ${cls}"><span>${title} (${list.length})</span><div class="line"></div></div>`
-    + list.map(contaRowHtml).join('');
+    + shown.map(contaRowHtml).join('') + moreBtnHtml(key, list.length, shown.length);
 }
 
 function lastPagamentoData(c){
@@ -1323,7 +1406,7 @@ function gerarProximaRecorrencia(c){
   else if(c.recorrencia==='personalizado') next.setMonth(next.getMonth() + (c.recorrenciaMeses||1));
   else return;
 
-  const iso = next.toISOString().slice(0,10);
+  const iso = isoLocal(next);
   state.contas.push(Object.assign({}, c, {
     id: uid(), vencimento: iso, status:'pendente', valorPago:0, pagamentos:[], criadoEm:new Date().toISOString()
   }));
@@ -1422,7 +1505,7 @@ function renderCalendar(){
     else { dayNum = i - startOffset + 1; }
 
     const cellDate = new Date(y, m+monthOffset, dayNum);
-    iso = cellDate.toISOString().slice(0,10);
+    iso = isoLocal(cellDate);
     const contasDia = byDay[iso] || [];
     const total = contasDia.reduce((s,c)=>s+saldoDevido(c),0);
     const dots = contasDia.slice(0,6).map(c=>{
@@ -1435,6 +1518,7 @@ function renderCalendar(){
     cells += `<div class="cal-day ${monthOffset!==0?'other-month':''} ${iso===todayStr?'today':''}" data-iso="${iso}">
       <div class="d-num">${dayNum}</div>
       <div class="cal-dots">${dots}</div>
+      ${contasDia.length>6?`<div class="d-count">+${contasDia.length-6}</div>`:''}
       ${total>0?`<div class="d-total">${fmtBRL(total)}</div>`:''}
     </div>`;
   }
@@ -1469,10 +1553,10 @@ document.getElementById('btnFecharDia').addEventListener('click', ()=>{ overlayD
 
 /* ============ RELATÓRIO DE PENDÊNCIAS (COMPACTO) ============ */
 document.getElementById('pendData').value = (function(){
-  const d = new Date(); d.setDate(d.getDate()+30); return d.toISOString().slice(0,10);
+  const d = new Date(); d.setDate(d.getDate()+30); return isoLocal(d);
 })();
 document.getElementById('pendData').addEventListener('change', renderPendencias);
-document.getElementById('btnPrintPend').addEventListener('click', ()=>window.print());
+document.getElementById('btnPrintPend').addEventListener('click', ()=>{ document.body.dataset.printScope = 'pend'; window.print(); });
 
 function extrairParcela(c){
   const re = /(\d{1,3}\s*\/\s*\d{1,3})/;
@@ -1529,7 +1613,8 @@ function renderPendencias(){
   table.style.display = '';
   empty.style.display = 'none';
 
-  tbody.innerHTML = list.map(c=>{
+  const pendShown = list.slice(0, limitFor('pend'));
+  tbody.innerHTML = pendShown.map(c=>{
     const vencida = isVencida(c);
     const dias = vencida ? diasAtraso(c) : null;
     return `<tr class="${vencida?'row-bad':''}">
@@ -1541,6 +1626,7 @@ function renderPendencias(){
       <td class="obs">${escapeHtml(gerarObs(c))}</td>
     </tr>`;
   }).join('');
+  document.getElementById('pendMore').innerHTML = moreBtnHtml('pend', list.length, pendShown.length);
 
   const total = list.reduce((s,c)=>s+saldoDevido(c),0);
   const vencidasCount = list.filter(isVencida).length;
@@ -1681,8 +1767,9 @@ function renderReports(){
 
   renderCatChart('repChart', list.filter(c=>c.status!=='pago'&&c.status!=='cancelado'));
 
+  const repShown = list.slice(0, limitFor('rep'));
   document.getElementById('repList').innerHTML = list.length
-    ? list.map(contaRowHtml).join('')
+    ? repShown.map(contaRowHtml).join('') + moreBtnHtml('rep', list.length, repShown.length)
     : '<div class="empty-state">Nenhuma conta encontrada para os filtros selecionados.</div>';
   attachContaRowHandlers();
 }
@@ -1696,7 +1783,14 @@ document.getElementById('btnExportCsv').addEventListener('click', ()=>{
   ]);
   downloadCsv([header, ...rows], `spd-relatorio-${todayISO()}.csv`);
 });
-document.getElementById('btnPrint').addEventListener('click', ()=>window.print());
+document.getElementById('btnPrint').addEventListener('click', ()=>{ delete document.body.dataset.printScope; window.print(); });
+window.addEventListener('beforeprint', ()=>{
+  ui.printAll = true;
+  const st = document.getElementById('printStamp'); if(st) st.textContent = new Date().toLocaleString('pt-BR');
+  const en = document.getElementById('printEntity'); if(en) en.textContent = ui.entityFilter || 'Todas (grupo SPD)';
+  renderAll();
+});
+window.addEventListener('afterprint', ()=>{ ui.printAll = false; delete document.body.dataset.printScope; renderAll(); });
 
 function downloadCsv(rows, filename){
   const csv = rows.map(r=>r.map(v=>{
@@ -1756,8 +1850,9 @@ function renderAportes(){
     {label:'Total histórico', value: fmtBRL(totalGeral), sub:`${list.length} aporte(s) no total`, cls:'warn'},
   ].map(c=>`<div class="card ${c.cls}"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="sub">${c.sub}</div></div>`).join('');
 
+  const apShown = list.slice(0, limitFor('apo'));
   document.getElementById('aportesList').innerHTML = list.length
-    ? list.map(aporteRowHtml).join('')
+    ? apShown.map(aporteRowHtml).join('') + moreBtnHtml('apo', list.length, apShown.length)
     : '<div class="empty-state">Nenhum aporte registrado ainda. Clique em "+ Novo aporte" para começar.</div>';
 
   document.querySelectorAll('.aporte-edit').forEach(b=>b.addEventListener('click', ()=>openAporteModal(b.dataset.id)));
