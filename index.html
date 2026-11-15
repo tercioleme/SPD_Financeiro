@@ -394,6 +394,7 @@
     <div class="brand">
       <div class="mark">SPD</div>
       <div class="sub">Controle Financeiro</div>
+      <div class="sub" style="font-size:9px; letter-spacing:.04em; text-transform:none; opacity:.8;">versão 15/11 · 01h20</div>
     </div>
     <nav id="mainNav">
       <button data-view="dashboard" class="active"><span class="ic">◆</span> Dashboard</button>
@@ -401,6 +402,7 @@
       <button data-view="calendario"><span class="ic">▦</span> Calendário</button>
       <button data-view="relatorios"><span class="ic">▤</span> Relatórios</button>
       <button data-view="aportes"><span class="ic">↓</span> Aportes</button>
+      <button data-view="whatsapp"><span class="ic">✉</span> WhatsApp</button>
       <button data-view="backup"><span class="ic">⇅</span> Backup</button>
     </nav>
     <div class="entity-block">
@@ -585,6 +587,27 @@
       <div id="aportesList"></div>
     </section>
 
+    <!-- WHATSAPP -->
+    <section class="view" id="view-whatsapp">
+      <div class="topbar"><h1>Importar do WhatsApp</h1></div>
+      <div class="panel">
+        <h3>Movimento do grupo</h3>
+        <p style="color:var(--text-dim); font-size:13px; margin-bottom:14px;">
+          Lê o relatório de movimento do grupo (ex.: “Movimento da conta Tércio no dia 02/09/2026”, “Pago via … = R$ …”, “Depósito via AST …”).
+          No WhatsApp: abra o grupo → ⋮ → Mais → Exportar conversa → <strong>Sem mídia</strong> e envie o .txt aqui (ou cole o texto).
+          Nada é gravado até você revisar e clicar em <strong>Aplicar</strong>. Lançamentos que já existem (mesma data e valor) vêm desmarcados.
+          Pagamentos baixam a conta correspondente; o valor pago sobrepõe o previsto, exceto funcionários e sócios.
+        </p>
+        <input type="file" id="wiFile" accept=".txt,text/plain" style="margin-bottom:10px;">
+        <textarea id="wiText" rows="5" placeholder="…ou cole aqui o texto do movimento" style="width:100%; margin-bottom:10px;"></textarea>
+        <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-primary" id="wiAnalisar">Analisar</button>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim);">Só a partir de <input type="date" id="wiDesde" style="width:auto;"></label>
+        </div>
+        <div id="wiResult"></div>
+      </div>
+    </section>
+
     <!-- BACKUP -->
     <section class="view" id="view-backup">
       <div class="topbar"><h1>Backup e dados</h1></div>
@@ -601,23 +624,6 @@
           <br>
           <button class="btn" id="btnImportJson">Importar backup</button>
         </div>
-      </div>
-
-      <div class="panel" style="margin-top:16px;">
-        <h3>Importar do WhatsApp</h3>
-        <p style="color:var(--text-dim); font-size:13px; margin-bottom:14px;">
-          Lê o relatório de movimento do grupo (ex.: “Movimento da conta Tércio no dia 02/09/2026”, “Pago via … = R$ …”, “Depósito via AST …”).
-          No WhatsApp: abra o grupo → ⋮ → Mais → Exportar conversa → <strong>Sem mídia</strong> e envie o .txt aqui (ou cole o texto).
-          Nada é gravado até você revisar e clicar em <strong>Aplicar</strong>. Lançamentos que já existem (mesma data e valor) vêm desmarcados.
-          Pagamentos baixam a conta correspondente; o valor pago sobrepõe o previsto, exceto funcionários e sócios.
-        </p>
-        <input type="file" id="wiFile" accept=".txt,text/plain" style="margin-bottom:10px;">
-        <textarea id="wiText" rows="5" placeholder="…ou cole aqui o texto do movimento" style="width:100%; margin-bottom:10px;"></textarea>
-        <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <button class="btn btn-primary" id="wiAnalisar">Analisar</button>
-          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim);">Só a partir de <input type="date" id="wiDesde" style="width:auto;"></label>
-        </div>
-        <div id="wiResult"></div>
       </div>
 
       <div class="panel" style="margin-top:16px;">
