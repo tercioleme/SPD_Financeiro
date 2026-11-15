@@ -816,7 +816,8 @@ async function loginAttempt(){
     }
     state = row.data;
     state.aportes = state.aportes || [];
-    cryptoKey = await deriveKey(pass, getLocalSalt()); // cache local cifrado com a senha
+    // cache local cifrado com a senha (só funciona em página segura/HTTPS; sem isso, segue sem cache local)
+    try{ cryptoKey = (window.crypto && crypto.subtle) ? await deriveKey(pass, getLocalSalt()) : null; }catch(e){ cryptoKey = null; }
     localStorage.setItem('spd_login_email', email);
     await saveStateLocalOnly();
     document.getElementById('authPass').value = '';
