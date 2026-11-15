@@ -266,6 +266,20 @@
   }
   /* ---------- Melhorias de layout ---------- */
   main{min-width:0;}
+  .conta-main{overflow:hidden;}
+  .conta-main .meta{overflow-wrap:anywhere; line-height:1.7;}
+  /* painel lateral do dia: linhas empilhadas para nada se sobrepor */
+  #overlayDia .conta-row{
+    grid-template-columns:auto 1fr auto;
+    grid-template-areas:"dot main main" "dot value venc" "dot actions actions";
+    row-gap:6px; column-gap:12px;
+  }
+  #overlayDia .conta-main{grid-area:main;}
+  #overlayDia .conta-main .titulo{white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+  #overlayDia .conta-valor{grid-area:value; text-align:left; font-size:14px;}
+  #overlayDia .conta-venc{grid-area:venc; text-align:right;}
+  #overlayDia .conta-actions{grid-area:actions; justify-content:flex-start;}
+  #overlayDia .status-dot{grid-area:dot; align-self:start; margin-top:5px;}
   .dash-grid{align-items:start;}
   .dash-grid > *, .panel, .ruler-wrap{min-width:0;}
   .barchart{overflow-x:auto;}
